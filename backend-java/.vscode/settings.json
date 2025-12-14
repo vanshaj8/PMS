@@ -1,0 +1,34 @@
+{
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.compile.nullAnalysis.mode": "automatic",
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-17",
+      "path": "/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home",
+      "default": true
+    }
+  ],
+  "java.project.sourcePaths": [
+    "src/main/java"
+  ],
+  "java.project.outputPath": "target/classes",
+  "java.project.referencedLibraries": [
+    "target/**/*.jar"
+  ],
+  "files.exclude": {
+    "**/.classpath": true,
+    "**/.project": true,
+    "**/.settings": true,
+    "**/.factorypath": true
+  },
+  "java.format.settings.url": "https://raw.githubusercontent.com/google/styleguide/gh-pages/eclipse-java-google-style.xml",
+  "java.format.settings.profile": "GoogleStyle",
+  "java.saveActions.organizeImports": true,
+  "[java]": {
+    "editor.defaultFormatter": "redhat.java",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    }
+  }
+}

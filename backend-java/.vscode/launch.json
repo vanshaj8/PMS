@@ -1,0 +1,25 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Launch PipManagementApplication",
+      "request": "launch",
+      "mainClass": "com.pip.PipManagementApplication",
+      "projectName": "pip-management-backend",
+      "args": "",
+      "vmArgs": "-Dspring.profiles.active=default",
+      "env": {
+        "SPRING_PROFILES_ACTIVE": "default"
+      }
+    },
+    {
+      "type": "java",
+      "name": "Launch with Maven",
+      "request": "launch",
+      "mainClass": "com.pip.PipManagementApplication",
+      "projectName": "pip-management-backend",
+      "preLaunchTask": "maven: spring-boot:run"
+    }
+  ]
+}

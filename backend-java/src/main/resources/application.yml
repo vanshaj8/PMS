@@ -1,0 +1,53 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: pip-management-backend
+  
+  datasource:
+    url: jdbc:h2:file:./data/pipdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password: 
+  
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  
+  # For PostgreSQL (uncomment for production)
+  # datasource:
+  #   url: jdbc:postgresql://localhost:5432/pipdb
+  #   username: postgres
+  #   password: postgres
+  #   driver-class-name: org.postgresql.Driver
+  # jpa:
+  #   database-platform: org.hibernate.dialect.PostgreSQLDialect
+  #   hibernate:
+  #     ddl-auto: update
+
+jwt:
+  secret: your-super-secret-jwt-key-change-in-production
+  expiration: 604800000 # 7 days in milliseconds
+
+cors:
+  allowed-origins: 
+    - http://localhost:5173
+    - http://localhost:5174
+    - http://localhost:3000
+
+logging:
+  level:
+    com.pip: DEBUG
+    org.springframework.security: DEBUG
+

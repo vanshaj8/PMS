@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.local
+.DS_Store
+backend/data/*.json
+!backend/data/.gitkeep
+uploads/
+*.pdf
+*.xlsx
+*.csv
+
