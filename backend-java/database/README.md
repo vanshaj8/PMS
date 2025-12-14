@@ -1,9 +1,26 @@
 # MySQL Database Setup for PIP Management System
 
+This directory contains all MySQL database-related files and documentation.
+
+## Files in this Directory
+
+- **schema.sql** - Complete MySQL schema with CREATE TABLE statements
+- **DATABASE_SCHEMA.md** - Detailed schema documentation
+- **MYSQL_SETUP_GUIDE.md** - Step-by-step setup instructions
+- **REPOSITORY_EXAMPLES.md** - Spring Data JPA repository examples
+- **ENTITY_MAPPING_EXAMPLES.md** - JPA entity mapping examples
+- **README.md** - This file
+
 ## Quick Start
 
 1. **Install MySQL** (if not already installed)
-   - See `MYSQL_SETUP_GUIDE.md` for detailed instructions
+   ```bash
+   # macOS
+   brew install mysql
+   
+   # Linux
+   sudo apt install mysql-server
+   ```
 
 2. **Create Database and User**
    ```sql
@@ -13,85 +30,42 @@
    FLUSH PRIVILEGES;
    ```
 
-3. **Run Schema**
+3. **Create Tables**
    ```bash
    mysql -u pip_user -p pip_management < schema.sql
    ```
 
-4. **Load Sample Data (Optional)**
-   ```bash
-   mysql -u pip_user -p pip_management < sample_data.sql
-   ```
-
-5. **Configure Spring Boot**
-   - Copy `application-mysql.yml` configuration
+4. **Configure Spring Boot**
+   - Copy `application-mysql.yml` to `application.yml`
    - Update database credentials
-   - Set active profile to `mysql`
+   - Set `spring.jpa.hibernate.ddl-auto=validate`
 
-6. **Start Application**
+5. **Start Application**
    ```bash
-   mvn spring-boot:run -Dspring.profiles.active=mysql
+   mvn spring-boot:run
    ```
-
-## Files in This Directory
-
-- **schema.sql** - Complete database schema with all tables, indexes, and foreign keys
-- **sample_data.sql** - Sample data for testing and development
-- **DATABASE_SCHEMA.md** - Detailed documentation of all tables and relationships
-- **MYSQL_SETUP_GUIDE.md** - Step-by-step setup instructions
-- **repository-examples.md** - Spring Data JPA repository examples
-- **entity-examples.md** - JPA entity mapping examples
-
-## Database Structure
-
-### Core Tables
-- `users` - User accounts and authentication
-- `pips` - Performance Improvement Plans
-- `goals` - Individual goals within PIPs
-- `pip_steps` - Workflow step tracking
-- `check_ins` - Progress check-ins
-
-### Supporting Tables
-- `audit_logs` - System audit trail
-- `notifications` - User notifications
-- `timeline_overrides` - Admin timeline changes
-- `goal_library` - Reusable goal templates (optional)
-- `pip_templates` - Reusable PIP templates (optional)
-
-## Configuration Files
-
-### Spring Boot Configuration
-
-**application-mysql.yml** - MySQL database configuration with:
-- Connection string
-- HikariCP connection pool settings
-- JPA/Hibernate configuration
-- Logging settings
-
-**application.properties.mysql** - Alternative properties format
-
-## Key Features
-
-- ✅ Normalized database design
-- ✅ Proper indexes for performance
-- ✅ Foreign key constraints for data integrity
-- ✅ Audit logging support
-- ✅ Optimistic locking with version field
-- ✅ UTF8MB4 character set for full Unicode support
-- ✅ Production-ready configuration
 
 ## Documentation
 
-For detailed information, see:
-- **DATABASE_SCHEMA.md** - Complete schema documentation
-- **MYSQL_SETUP_GUIDE.md** - Setup and troubleshooting
-- **repository-examples.md** - Repository usage examples
-- **entity-examples.md** - Entity mapping examples
+- **Setup Guide**: See `MYSQL_SETUP_GUIDE.md` for detailed setup instructions
+- **Schema Documentation**: See `DATABASE_SCHEMA.md` for table descriptions
+- **Repository Examples**: See `REPOSITORY_EXAMPLES.md` for query examples
+- **Entity Mapping**: See `ENTITY_MAPPING_EXAMPLES.md` for JPA annotations
+
+## Configuration Files
+
+Configuration examples are in:
+- `src/main/resources/application-mysql.yml` - YAML format
+- `src/main/resources/application.properties.mysql` - Properties format
 
 ## Support
 
 For issues or questions:
-1. Check `MYSQL_SETUP_GUIDE.md` troubleshooting section
-2. Verify MySQL is running and accessible
+1. Check the setup guide
+2. Review schema documentation
 3. Check Spring Boot logs for connection errors
-4. Test connection manually: `mysql -u pip_user -p pip_management`
+4. Verify MySQL is running and accessible
+
+---
+
+*Last Updated: 2024*

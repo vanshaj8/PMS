@@ -6,16 +6,21 @@
 -- Created: 2024
 -- =====================================================
 
--- Create Database (run this first)
--- CREATE DATABASE IF NOT EXISTS pip_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
--- USE pip_management;
+-- Drop existing tables if they exist (for fresh setup)
+SET FOREIGN_KEY_CHECKS = 0;
+DROP TABLE IF EXISTS check_ins;
+DROP TABLE IF EXISTS pip_steps;
+DROP TABLE IF EXISTS goals;
+DROP TABLE IF EXISTS pips;
+DROP TABLE IF EXISTS users;
+SET FOREIGN_KEY_CHECKS = 1;
 
 -- =====================================================
 -- Table: users
 -- Purpose: Stores all user accounts (employees, managers, HRBP, admins)
 -- =====================================================
-CREATE TABLE IF NOT EXISTS users (
-    id VARCHAR(36) PRIMARY KEY,
+CREATE TABLE users (
+    id CHAR(36) PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
@@ -23,33 +28,36 @@ CREATE TABLE IF NOT EXISTS users (
     role ENUM('ADMIN', 'MANAGER', 'EMPLOYEE', 'HRBP', 'EXECUTIVE') NOT NULL,
     department VARCHAR(100),
     location VARCHAR(100),
-    manager_id VARCHAR(36),
-    hrbp_id VARCHAR(36),
+    manager_id CHAR(36),
+    hrbp_id CHAR(36),
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
+    -- Foreign keys
+    CONSTRAINT fk_user_manager FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL,
+    CONSTRAINT fk_user_hrbp FOREIGN KEY (hrbp_id) REFERENCES users(id) ON DELETE SET NULL,
+    
+    -- Indexes
     INDEX idx_email (email),
     INDEX idx_role (role),
     INDEX idx_manager_id (manager_id),
     INDEX idx_hrbp_id (hrbp_id),
     INDEX idx_is_active (is_active),
-    
-    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE SET NULL,
-    FOREIGN KEY (hrbp_id) REFERENCES users(id) ON DELETE SET NULL
+    INDEX idx_department (department)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- Table: pips
--- Purpose: Main table for Performance Improvement Plans
+-- Purpose: Stores Performance Improvement Plans
 -- =====================================================
-CREATE TABLE IF NOT EXISTS pips (
-    id VARCHAR(36) PRIMARY KEY,
-    employee_id VARCHAR(36) NOT NULL,
-    manager_id VARCHAR(36) NOT NULL,
-    hrbp_id VARCHAR(36) NOT NULL,
+CREATE TABLE pips (
+    id CHAR(36) PRIMARY KEY,
+    employee_id CHAR(36) NOT NULL,
+    manager_id CHAR(36) NOT NULL,
+    hrbp_id CHAR(36) NOT NULL,
     reason TEXT,
-    supporting_documents TEXT, -- JSON array of document URLs/paths
+    supporting_documents TEXT, -- JSON array as string
     status ENUM(
         'DRAFT',
         'PENDING_HRBP_REVIEW',
@@ -69,62 +77,67 @@ CREATE TABLE IF NOT EXISTS pips (
     
     -- Timeline fields (embedded from PIPTimeline)
     employee_acknowledgement_deadline DATE,
-    pip_active_duration INT, -- in days
+    pip_active_duration INT, -- days
     employee_self_review_deadline DATE,
     manager_final_review_deadline DATE,
     hrbp_final_decision_deadline DATE,
-    grace_period INT DEFAULT 0, -- in days
+    grace_period INT, -- days
     
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
+    -- Foreign keys
+    CONSTRAINT fk_pip_employee FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_pip_manager FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE RESTRICT,
+    CONSTRAINT fk_pip_hrbp FOREIGN KEY (hrbp_id) REFERENCES users(id) ON DELETE RESTRICT,
+    
+    -- Indexes
     INDEX idx_employee_id (employee_id),
     INDEX idx_manager_id (manager_id),
     INDEX idx_hrbp_id (hrbp_id),
     INDEX idx_status (status),
     INDEX idx_created_at (created_at),
-    INDEX idx_employee_acknowledgement_deadline (employee_acknowledgement_deadline),
-    INDEX idx_employee_self_review_deadline (employee_self_review_deadline),
-    
-    FOREIGN KEY (employee_id) REFERENCES users(id) ON DELETE RESTRICT,
-    FOREIGN KEY (manager_id) REFERENCES users(id) ON DELETE RESTRICT,
-    FOREIGN KEY (hrbp_id) REFERENCES users(id) ON DELETE RESTRICT
+    INDEX idx_final_outcome (final_outcome)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- Table: goals
 -- Purpose: Stores individual goals within a PIP
 -- =====================================================
-CREATE TABLE IF NOT EXISTS goals (
-    id VARCHAR(36) PRIMARY KEY,
-    pip_id VARCHAR(36) NOT NULL,
+CREATE TABLE goals (
+    id CHAR(36) PRIMARY KEY,
+    pip_id CHAR(36) NOT NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    weightage DECIMAL(5,2) NOT NULL, -- e.g., 30.00 for 30%
-    expected_outcome VARCHAR(500),
+    weightage DECIMAL(5,2) NOT NULL, -- e.g., 30.50 for 30.5%
+    expected_outcome TEXT,
     target_timeline VARCHAR(100),
     deadline DATE,
-    justification TEXT, -- Employee's justification during self-review
-    employee_attachments TEXT, -- JSON array of document URLs/paths
+    justification TEXT,
+    employee_attachments TEXT, -- JSON array as string
     status ENUM('ACHIEVED', 'PARTIALLY_ACHIEVED', 'NOT_ACHIEVED') DEFAULT 'NOT_ACHIEVED',
     manager_comments TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
+    -- Foreign keys
+    CONSTRAINT fk_goal_pip FOREIGN KEY (pip_id) REFERENCES pips(id) ON DELETE CASCADE,
+    
+    -- Indexes
     INDEX idx_pip_id (pip_id),
     INDEX idx_status (status),
-    INDEX idx_deadline (deadline),
     
-    FOREIGN KEY (pip_id) REFERENCES pips(id) ON DELETE CASCADE
+    -- Constraints
+    CONSTRAINT chk_weightage CHECK (weightage >= 0 AND weightage <= 100)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- Table: pip_steps
--- Purpose: Tracks workflow steps and their status for each PIP
+-- Purpose: Tracks workflow steps and their status
 -- =====================================================
-CREATE TABLE IF NOT EXISTS pip_steps (
-    id VARCHAR(36) PRIMARY KEY,
-    pip_id VARCHAR(36) NOT NULL,
+CREATE TABLE pip_steps (
+    id CHAR(36) PRIMARY KEY,
+    pip_id CHAR(36) NOT NULL,
     step ENUM(
         'EMPLOYEE_ACKNOWLEDGEMENT',
         'ACTIVE_PIP',
@@ -137,144 +150,86 @@ CREATE TABLE IF NOT EXISTS pip_steps (
     due_date DATE NOT NULL,
     completed_date DATE,
     comments TEXT,
-    signed_by VARCHAR(36), -- User ID who signed/completed this step
+    signed_by CHAR(36),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
+    -- Foreign keys
+    CONSTRAINT fk_step_pip FOREIGN KEY (pip_id) REFERENCES pips(id) ON DELETE CASCADE,
+    CONSTRAINT fk_step_signed_by FOREIGN KEY (signed_by) REFERENCES users(id) ON DELETE SET NULL,
+    
+    -- Indexes
     INDEX idx_pip_id (pip_id),
     INDEX idx_step (step),
     INDEX idx_status (status),
     INDEX idx_due_date (due_date),
     INDEX idx_signed_by (signed_by),
     
-    FOREIGN KEY (pip_id) REFERENCES pips(id) ON DELETE CASCADE,
-    FOREIGN KEY (signed_by) REFERENCES users(id) ON DELETE SET NULL
+    -- Unique constraint: one step type per PIP
+    UNIQUE KEY uk_pip_step (pip_id, step)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- Table: check_ins
 -- Purpose: Stores progress check-ins during active PIP period
 -- =====================================================
-CREATE TABLE IF NOT EXISTS check_ins (
-    id VARCHAR(36) PRIMARY KEY,
-    pip_id VARCHAR(36) NOT NULL,
+CREATE TABLE check_ins (
+    id CHAR(36) PRIMARY KEY,
+    pip_id CHAR(36) NOT NULL,
     date DATE NOT NULL,
     notes TEXT,
-    attachments TEXT, -- JSON array of document URLs/paths
+    attachments TEXT, -- JSON array as string
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
+    -- Foreign keys
+    CONSTRAINT fk_checkin_pip FOREIGN KEY (pip_id) REFERENCES pips(id) ON DELETE CASCADE,
+    
+    -- Indexes
     INDEX idx_pip_id (pip_id),
     INDEX idx_date (date),
-    
-    FOREIGN KEY (pip_id) REFERENCES pips(id) ON DELETE CASCADE
+    INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
--- Table: audit_logs
--- Purpose: Tracks all important actions and changes in the system
+-- Optional: Audit Log Table (for tracking all changes)
 -- =====================================================
 CREATE TABLE IF NOT EXISTS audit_logs (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     entity_type VARCHAR(50) NOT NULL, -- e.g., 'PIP', 'GOAL', 'USER'
-    entity_id VARCHAR(36) NOT NULL,
-    action VARCHAR(50) NOT NULL, -- e.g., 'CREATE', 'UPDATE', 'DELETE', 'APPROVE'
-    user_id VARCHAR(36),
-    user_email VARCHAR(255),
-    old_values JSON, -- Previous state (for updates)
-    new_values JSON, -- New state
-    description TEXT,
+    entity_id CHAR(36) NOT NULL,
+    action VARCHAR(50) NOT NULL, -- e.g., 'CREATE', 'UPDATE', 'DELETE'
+    user_id CHAR(36),
+    old_values JSON,
+    new_values JSON,
     ip_address VARCHAR(45),
+    user_agent TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
+    -- Foreign keys
+    CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    
+    -- Indexes
     INDEX idx_entity (entity_type, entity_id),
     INDEX idx_user_id (user_id),
-    INDEX idx_action (action),
     INDEX idx_created_at (created_at),
-    
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+    INDEX idx_action (action)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
--- Table: notifications
--- Purpose: Stores system notifications for users
+-- Sample Data Inserts
 -- =====================================================
-CREATE TABLE IF NOT EXISTS notifications (
-    id VARCHAR(36) PRIMARY KEY,
-    user_id VARCHAR(36) NOT NULL,
-    title VARCHAR(255) NOT NULL,
-    message TEXT NOT NULL,
-    type VARCHAR(50) DEFAULT 'INFO', -- INFO, WARNING, ERROR, SUCCESS
-    read BOOLEAN DEFAULT FALSE,
-    action_url VARCHAR(500), -- URL to navigate when notification is clicked
-    related_entity_type VARCHAR(50), -- e.g., 'PIP'
-    related_entity_id VARCHAR(36), -- e.g., PIP ID
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    INDEX idx_user_id (user_id),
-    INDEX idx_read (read),
-    INDEX idx_created_at (created_at),
-    INDEX idx_user_read (user_id, read),
-    
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- =====================================================
--- Table: timeline_overrides
--- Purpose: Tracks timeline changes made by admins
--- =====================================================
-CREATE TABLE IF NOT EXISTS timeline_overrides (
-    id VARCHAR(36) PRIMARY KEY,
-    pip_id VARCHAR(36) NOT NULL,
-    step_name VARCHAR(100) NOT NULL,
-    original_deadline DATE NOT NULL,
-    new_deadline DATE NOT NULL,
-    reason TEXT NOT NULL,
-    overridden_by VARCHAR(36) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    INDEX idx_pip_id (pip_id),
-    INDEX idx_overridden_by (overridden_by),
-    
-    FOREIGN KEY (pip_id) REFERENCES pips(id) ON DELETE CASCADE,
-    FOREIGN KEY (overridden_by) REFERENCES users(id) ON DELETE RESTRICT
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Insert default users
+INSERT INTO users (id, email, password, first_name, last_name, role, department, location, is_active) VALUES
+('550e8400-e29b-41d4-a716-446655440001', 'admin@pip.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Admin', 'User', 'ADMIN', 'IT', 'Headquarters', TRUE),
+('550e8400-e29b-41d4-a716-446655440002', 'manager@pip.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Manager', 'User', 'MANAGER', 'Engineering', 'New York', TRUE),
+('550e8400-e29b-41d4-a716-446655440003', 'employee@pip.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Employee', 'User', 'EMPLOYEE', 'Engineering', 'New York', TRUE),
+('550e8400-e29b-41d4-a716-446655440004', 'hrbp@pip.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'HRBP', 'User', 'HRBP', 'HR', 'Headquarters', TRUE),
+('550e8400-e29b-41d4-a716-446655440005', 'executive@pip.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Executive', 'User', 'EXECUTIVE', 'Executive', 'Headquarters', TRUE);
 
--- =====================================================
--- Table: goal_library (Optional - for reusable goals)
--- Purpose: Stores template goals that can be reused
--- =====================================================
-CREATE TABLE IF NOT EXISTS goal_library (
-    id VARCHAR(36) PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    category VARCHAR(100),
-    created_by VARCHAR(36),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    INDEX idx_category (category),
-    INDEX idx_is_active (is_active),
-    
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Update manager and HRBP relationships
+UPDATE users SET manager_id = '550e8400-e29b-41d4-a716-446655440002' WHERE id = '550e8400-e29b-41d4-a716-446655440003';
+UPDATE users SET hrbp_id = '550e8400-e29b-41d4-a716-446655440004' WHERE id = '550e8400-e29b-41d4-a716-446655440003';
 
--- =====================================================
--- Table: pip_templates (Optional - for reusable PIP templates)
--- Purpose: Stores PIP templates for quick creation
--- =====================================================
-CREATE TABLE IF NOT EXISTS pip_templates (
-    id VARCHAR(36) PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    goals JSON, -- Array of goal templates
-    timeline_config JSON, -- Timeline configuration
-    created_by VARCHAR(36),
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    
-    INDEX idx_is_active (is_active),
-    
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+-- Note: Password hash above is for 'password123' - CHANGE IN PRODUCTION!

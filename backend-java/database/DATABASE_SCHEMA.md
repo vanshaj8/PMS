@@ -1,8 +1,10 @@
-# Database Schema Documentation
+# MySQL Database Schema Documentation
 
 ## Overview
 
-The PIP Management System uses MySQL 8.0+ with InnoDB engine and UTF8MB4 character set for full Unicode support.
+This document describes the MySQL database schema for the PIP Management System. The schema is designed to be normalized, secure, and production-ready.
+
+---
 
 ## Database Information
 
@@ -10,6 +12,34 @@ The PIP Management System uses MySQL 8.0+ with InnoDB engine and UTF8MB4 charact
 - **Character Set**: `utf8mb4`
 - **Collation**: `utf8mb4_unicode_ci`
 - **Engine**: `InnoDB`
+
+---
+
+## Table Relationships
+
+```
+users (self-referencing)
+  ├── manager_id → users.id
+  └── hrbp_id → users.id
+
+pips
+  ├── employee_id → users.id
+  ├── manager_id → users.id
+  └── hrbp_id → users.id
+
+goals
+  └── pip_id → pips.id (CASCADE DELETE)
+
+pip_steps
+  ├── pip_id → pips.id (CASCADE DELETE)
+  └── signed_by → users.id
+
+check_ins
+  └── pip_id → pips.id (CASCADE DELETE)
+
+audit_logs
+  └── user_id → users.id
+```
 
 ---
 
@@ -21,75 +51,83 @@ The PIP Management System uses MySQL 8.0+ with InnoDB engine and UTF8MB4 charact
 
 | Column | Type | Description | Constraints |
 |--------|------|-------------|-------------|
-| id | VARCHAR(36) | Unique identifier (UUID) | PRIMARY KEY |
-| email | VARCHAR(255) | User email address | NOT NULL, UNIQUE |
-| password | VARCHAR(255) | Hashed password (BCrypt) | NOT NULL |
+| id | CHAR(36) | Unique identifier (UUID) | PRIMARY KEY |
+| email | VARCHAR(255) | User's email address | NOT NULL, UNIQUE |
+| password | VARCHAR(255) | Hashed password (bcrypt) | NOT NULL |
 | first_name | VARCHAR(100) | User's first name | NOT NULL |
 | last_name | VARCHAR(100) | User's last name | NOT NULL |
-| role | ENUM | User role | NOT NULL |
-| department | VARCHAR(100) | Department name | NULL |
-| location | VARCHAR(100) | Office location | NULL |
-| manager_id | VARCHAR(36) | Reference to manager user | FOREIGN KEY |
-| hrbp_id | VARCHAR(36) | Reference to HRBP user | FOREIGN KEY |
-| is_active | BOOLEAN | Account active status | DEFAULT TRUE |
-| created_at | TIMESTAMP | Record creation time | AUTO |
-| updated_at | TIMESTAMP | Last update time | AUTO |
-
-**Relationships**:
-- Self-referential: `manager_id` and `hrbp_id` reference `users.id`
-- One-to-Many: One user can be manager/HRBP for many employees
+| role | ENUM | User role: ADMIN, MANAGER, EMPLOYEE, HRBP, EXECUTIVE | NOT NULL |
+| department | VARCHAR(100) | User's department | NULL |
+| location | VARCHAR(100) | User's location | NULL |
+| manager_id | CHAR(36) | Reference to user's manager | FOREIGN KEY → users.id |
+| hrbp_id | CHAR(36) | Reference to user's HRBP | FOREIGN KEY → users.id |
+| is_active | BOOLEAN | Whether account is active | DEFAULT TRUE |
+| created_at | TIMESTAMP | Account creation timestamp | DEFAULT CURRENT_TIMESTAMP |
+| updated_at | TIMESTAMP | Last update timestamp | AUTO UPDATE |
 
 **Indexes**:
 - `idx_email` - Fast email lookups
 - `idx_role` - Filter by role
-- `idx_manager_id` - Find employees by manager
-- `idx_hrbp_id` - Find employees by HRBP
+- `idx_manager_id` - Find direct reports
+- `idx_hrbp_id` - Find HRBP assignments
 - `idx_is_active` - Filter active users
+- `idx_department` - Filter by department
+
+**Relationships**:
+- Self-referencing: `manager_id` and `hrbp_id` reference other users
+- Referenced by: `pips` (employee_id, manager_id, hrbp_id), `pip_steps` (signed_by)
 
 ---
 
 ### 2. pips
 
-**Purpose**: Main table storing Performance Improvement Plans.
+**Purpose**: Stores Performance Improvement Plans with all associated metadata and timeline information.
 
 | Column | Type | Description | Constraints |
 |--------|------|-------------|-------------|
-| id | VARCHAR(36) | Unique identifier | PRIMARY KEY |
-| employee_id | VARCHAR(36) | Employee on PIP | NOT NULL, FK |
-| manager_id | VARCHAR(36) | Manager who created PIP | NOT NULL, FK |
-| hrbp_id | VARCHAR(36) | HRBP reviewing PIP | NOT NULL, FK |
+| id | CHAR(36) | Unique identifier (UUID) | PRIMARY KEY |
+| employee_id | CHAR(36) | Employee on PIP | NOT NULL, FK → users.id |
+| manager_id | CHAR(36) | Manager creating PIP | NOT NULL, FK → users.id |
+| hrbp_id | CHAR(36) | HRBP reviewing PIP | NOT NULL, FK → users.id |
 | reason | TEXT | Reason for PIP creation | NULL |
-| supporting_documents | TEXT | JSON array of document paths | NULL |
-| status | ENUM | Current PIP status | NOT NULL |
-| final_outcome | ENUM | Final decision outcome | NULL |
+| supporting_documents | TEXT | JSON array of document URLs | NULL |
+| status | ENUM | Current PIP status | NOT NULL, DEFAULT 'DRAFT' |
+| final_outcome | ENUM | Final decision: SUCCESSFUL, UNSUCCESSFUL, EXTENDED, CLOSED_WITHOUT_ACTION | NULL |
 | final_remarks | TEXT | HRBP final comments | NULL |
-| locked | BOOLEAN | PIP locked after completion | DEFAULT FALSE |
-| version | INT | Version for optimistic locking | DEFAULT 1 |
+| locked | BOOLEAN | Whether PIP can be modified | DEFAULT FALSE |
+| version | INT | Optimistic locking version | DEFAULT 1 |
 | employee_acknowledgement_deadline | DATE | Deadline for employee acknowledgement | NULL |
-| pip_active_duration | INT | Active period in days | NULL |
-| employee_self_review_deadline | DATE | Self-review deadline | NULL |
-| manager_final_review_deadline | DATE | Manager review deadline | NULL |
-| hrbp_final_decision_deadline | DATE | HRBP decision deadline | NULL |
-| grace_period | INT | Grace period in days | DEFAULT 0 |
-| created_at | TIMESTAMP | Creation timestamp | AUTO |
-| updated_at | TIMESTAMP | Last update timestamp | AUTO |
+| pip_active_duration | INT | Active PIP duration in days | NULL |
+| employee_self_review_deadline | DATE | Deadline for self-review | NULL |
+| manager_final_review_deadline | DATE | Deadline for manager review | NULL |
+| hrbp_final_decision_deadline | DATE | Deadline for HRBP decision | NULL |
+| grace_period | INT | Grace period in days | NULL |
+| created_at | TIMESTAMP | PIP creation timestamp | DEFAULT CURRENT_TIMESTAMP |
+| updated_at | TIMESTAMP | Last update timestamp | AUTO UPDATE |
 
-**Relationships**:
-- Many-to-One: Many PIPs belong to one employee (`employee_id`)
-- Many-to-One: Many PIPs created by one manager (`manager_id`)
-- Many-to-One: Many PIPs reviewed by one HRBP (`hrbp_id`)
-- One-to-Many: One PIP has many goals
-- One-to-Many: One PIP has many steps
-- One-to-Many: One PIP has many check-ins
+**Status Values**:
+- `DRAFT` - Being created by manager
+- `PENDING_HRBP_REVIEW` - Awaiting HRBP initial review
+- `PENDING_EMPLOYEE_ACKNOWLEDGEMENT` - Awaiting employee acknowledgement
+- `ACTIVE` - PIP is active, improvement period ongoing
+- `PENDING_EMPLOYEE_SELF_REVIEW` - Awaiting employee self-review
+- `PENDING_MANAGER_REVIEW` - Awaiting manager final review
+- `PENDING_HRBP_DECISION` - Awaiting HRBP final decision
+- `COMPLETED` - PIP process completed
+- `OVERDUE` - Past deadline
+- `CANCELLED` - PIP cancelled
 
 **Indexes**:
-- `idx_employee_id` - Find PIPs by employee
-- `idx_manager_id` - Find PIPs by manager
-- `idx_hrbp_id` - Find PIPs by HRBP
+- `idx_employee_id` - Find all PIPs for an employee
+- `idx_manager_id` - Find all PIPs created by a manager
+- `idx_hrbp_id` - Find all PIPs assigned to an HRBP
 - `idx_status` - Filter by status
 - `idx_created_at` - Sort by creation date
-- `idx_employee_acknowledgement_deadline` - Find PIPs with approaching deadlines
-- `idx_employee_self_review_deadline` - Find PIPs with approaching review deadlines
+- `idx_final_outcome` - Filter by outcome
+
+**Relationships**:
+- References: `users` (employee_id, manager_id, hrbp_id)
+- Referenced by: `goals`, `pip_steps`, `check_ins`
 
 ---
 
@@ -99,28 +137,31 @@ The PIP Management System uses MySQL 8.0+ with InnoDB engine and UTF8MB4 charact
 
 | Column | Type | Description | Constraints |
 |--------|------|-------------|-------------|
-| id | VARCHAR(36) | Unique identifier | PRIMARY KEY |
-| pip_id | VARCHAR(36) | Parent PIP | NOT NULL, FK |
+| id | CHAR(36) | Unique identifier (UUID) | PRIMARY KEY |
+| pip_id | CHAR(36) | Parent PIP | NOT NULL, FK → pips.id |
 | title | VARCHAR(255) | Goal title | NOT NULL |
-| description | TEXT | Detailed description | NULL |
-| weightage | DECIMAL(5,2) | Goal importance (0-100%) | NOT NULL |
-| expected_outcome | VARCHAR(500) | What success looks like | NULL |
-| target_timeline | VARCHAR(100) | Timeline description | NULL |
-| deadline | DATE | Specific deadline | NULL |
+| description | TEXT | Detailed goal description | NULL |
+| weightage | DECIMAL(5,2) | Goal importance (0-100%) | NOT NULL, CHECK 0-100 |
+| expected_outcome | TEXT | What success looks like | NULL |
+| target_timeline | VARCHAR(100) | Target completion timeline | NULL |
+| deadline | DATE | Specific deadline date | NULL |
 | justification | TEXT | Employee's justification | NULL |
-| employee_attachments | TEXT | JSON array of documents | NULL |
-| status | ENUM | Goal achievement status | DEFAULT 'NOT_ACHIEVED' |
-| manager_comments | TEXT | Manager's assessment | NULL |
-| created_at | TIMESTAMP | Creation time | AUTO |
-| updated_at | TIMESTAMP | Update time | AUTO |
-
-**Relationships**:
-- Many-to-One: Many goals belong to one PIP (`pip_id`)
+| employee_attachments | TEXT | JSON array of attachments | NULL |
+| status | ENUM | Goal status: ACHIEVED, PARTIALLY_ACHIEVED, NOT_ACHIEVED | DEFAULT 'NOT_ACHIEVED' |
+| manager_comments | TEXT | Manager's assessment comments | NULL |
+| created_at | TIMESTAMP | Creation timestamp | DEFAULT CURRENT_TIMESTAMP |
+| updated_at | TIMESTAMP | Last update timestamp | AUTO UPDATE |
 
 **Indexes**:
-- `idx_pip_id` - Find goals by PIP
+- `idx_pip_id` - Find all goals for a PIP
 - `idx_status` - Filter by achievement status
-- `idx_deadline` - Find goals by deadline
+
+**Relationships**:
+- References: `pips` (pip_id) - CASCADE DELETE
+
+**Constraints**:
+- Weightage must be between 0 and 100
+- Total weightage for all goals in a PIP should ideally sum to 100% (enforced in application logic)
 
 ---
 
@@ -130,27 +171,37 @@ The PIP Management System uses MySQL 8.0+ with InnoDB engine and UTF8MB4 charact
 
 | Column | Type | Description | Constraints |
 |--------|------|-------------|-------------|
-| id | VARCHAR(36) | Unique identifier | PRIMARY KEY |
-| pip_id | VARCHAR(36) | Parent PIP | NOT NULL, FK |
-| step | ENUM | Step name | NOT NULL |
-| status | ENUM | Step status | NOT NULL |
+| id | CHAR(36) | Unique identifier (UUID) | PRIMARY KEY |
+| pip_id | CHAR(36) | Parent PIP | NOT NULL, FK → pips.id |
+| step | ENUM | Step type | NOT NULL |
+| status | ENUM | Step status: PENDING, DUE_SOON, OVERDUE, COMPLETED | NOT NULL, DEFAULT 'PENDING' |
 | due_date | DATE | Step due date | NOT NULL |
-| completed_date | DATE | Completion date | NULL |
+| completed_date | DATE | When step was completed | NULL |
 | comments | TEXT | Step comments | NULL |
-| signed_by | VARCHAR(36) | User who completed step | FK |
-| created_at | TIMESTAMP | Creation time | AUTO |
-| updated_at | TIMESTAMP | Update time | AUTO |
+| signed_by | CHAR(36) | User who completed step | FK → users.id |
+| created_at | TIMESTAMP | Creation timestamp | DEFAULT CURRENT_TIMESTAMP |
+| updated_at | TIMESTAMP | Last update timestamp | AUTO UPDATE |
 
-**Relationships**:
-- Many-to-One: Many steps belong to one PIP (`pip_id`)
-- Many-to-One: Step signed by one user (`signed_by`)
+**Step Types**:
+- `EMPLOYEE_ACKNOWLEDGEMENT` - Employee must acknowledge PIP
+- `ACTIVE_PIP` - PIP is active
+- `EMPLOYEE_SELF_REVIEW` - Employee self-review
+- `MANAGER_REVIEW` - Manager final review
+- `HRBP_REVIEW` - HRBP initial review
+- `HRBP_DECISION` - HRBP final decision
 
 **Indexes**:
-- `idx_pip_id` - Find steps by PIP
+- `idx_pip_id` - Find all steps for a PIP
 - `idx_step` - Filter by step type
 - `idx_status` - Filter by status
 - `idx_due_date` - Find overdue steps
-- `idx_signed_by` - Find steps by signer
+- `idx_signed_by` - Find steps signed by user
+
+**Relationships**:
+- References: `pips` (pip_id) - CASCADE DELETE, `users` (signed_by)
+
+**Constraints**:
+- Unique constraint: One step type per PIP (`uk_pip_step`)
 
 ---
 
@@ -160,209 +211,97 @@ The PIP Management System uses MySQL 8.0+ with InnoDB engine and UTF8MB4 charact
 
 | Column | Type | Description | Constraints |
 |--------|------|-------------|-------------|
-| id | VARCHAR(36) | Unique identifier | PRIMARY KEY |
-| pip_id | VARCHAR(36) | Parent PIP | NOT NULL, FK |
+| id | CHAR(36) | Unique identifier (UUID) | PRIMARY KEY |
+| pip_id | CHAR(36) | Parent PIP | NOT NULL, FK → pips.id |
 | date | DATE | Check-in date | NOT NULL |
 | notes | TEXT | Check-in notes | NULL |
-| attachments | TEXT | JSON array of documents | NULL |
-| created_at | TIMESTAMP | Creation time | AUTO |
-
-**Relationships**:
-- Many-to-One: Many check-ins belong to one PIP (`pip_id`)
+| attachments | TEXT | JSON array of attachments | NULL |
+| created_at | TIMESTAMP | Creation timestamp | DEFAULT CURRENT_TIMESTAMP |
+| updated_at | TIMESTAMP | Last update timestamp | AUTO UPDATE |
 
 **Indexes**:
-- `idx_pip_id` - Find check-ins by PIP
+- `idx_pip_id` - Find all check-ins for a PIP
 - `idx_date` - Sort by date
+- `idx_created_at` - Sort by creation time
+
+**Relationships**:
+- References: `pips` (pip_id) - CASCADE DELETE
 
 ---
 
-### 6. audit_logs
+### 6. audit_logs (Optional)
 
-**Purpose**: Tracks all important actions and changes for compliance and debugging.
+**Purpose**: Tracks all changes to entities for audit and compliance.
 
 | Column | Type | Description | Constraints |
 |--------|------|-------------|-------------|
 | id | BIGINT | Auto-increment ID | PRIMARY KEY |
-| entity_type | VARCHAR(50) | Type of entity | NOT NULL |
-| entity_id | VARCHAR(36) | Entity identifier | NOT NULL |
-| action | VARCHAR(50) | Action performed | NOT NULL |
-| user_id | VARCHAR(36) | User who performed action | FK |
-| user_email | VARCHAR(255) | User email (denormalized) | NULL |
-| old_values | JSON | Previous state | NULL |
-| new_values | JSON | New state | NULL |
-| description | TEXT | Action description | NULL |
-| ip_address | VARCHAR(45) | User IP address | NULL |
-| created_at | TIMESTAMP | Action timestamp | AUTO |
-
-**Relationships**:
-- Many-to-One: Many logs from one user (`user_id`)
+| entity_type | VARCHAR(50) | Type of entity (PIP, GOAL, USER) | NOT NULL |
+| entity_id | CHAR(36) | ID of the entity | NOT NULL |
+| action | VARCHAR(50) | Action taken (CREATE, UPDATE, DELETE) | NOT NULL |
+| user_id | CHAR(36) | User who performed action | FK → users.id |
+| old_values | JSON | Previous values | NULL |
+| new_values | JSON | New values | NULL |
+| ip_address | VARCHAR(45) | User's IP address | NULL |
+| user_agent | TEXT | Browser/client information | NULL |
+| created_at | TIMESTAMP | Action timestamp | DEFAULT CURRENT_TIMESTAMP |
 
 **Indexes**:
-- `idx_entity` - Find logs by entity
-- `idx_user_id` - Find logs by user
+- `idx_entity` - Find all changes to an entity
+- `idx_user_id` - Find all actions by a user
+- `idx_created_at` - Sort by time
 - `idx_action` - Filter by action type
-- `idx_created_at` - Sort by time
-
----
-
-### 7. notifications
-
-**Purpose**: Stores system notifications for users.
-
-| Column | Type | Description | Constraints |
-|--------|------|-------------|-------------|
-| id | VARCHAR(36) | Unique identifier | PRIMARY KEY |
-| user_id | VARCHAR(36) | Recipient user | NOT NULL, FK |
-| title | VARCHAR(255) | Notification title | NOT NULL |
-| message | TEXT | Notification message | NOT NULL |
-| type | VARCHAR(50) | Notification type | DEFAULT 'INFO' |
-| read | BOOLEAN | Read status | DEFAULT FALSE |
-| action_url | VARCHAR(500) | URL to navigate | NULL |
-| related_entity_type | VARCHAR(50) | Related entity type | NULL |
-| related_entity_id | VARCHAR(36) | Related entity ID | NULL |
-| created_at | TIMESTAMP | Creation time | AUTO |
 
 **Relationships**:
-- Many-to-One: Many notifications for one user (`user_id`)
-
-**Indexes**:
-- `idx_user_id` - Find notifications by user
-- `idx_read` - Filter unread notifications
-- `idx_created_at` - Sort by time
-- `idx_user_read` - Composite for user unread count
+- References: `users` (user_id)
 
 ---
 
-### 8. timeline_overrides
+## Data Types Explanation
 
-**Purpose**: Tracks timeline changes made by administrators.
+### CHAR(36) vs VARCHAR(36)
+- **CHAR(36)**: Used for UUIDs - fixed length, faster for exact matches
+- **VARCHAR**: Variable length, used for text fields
 
-| Column | Type | Description | Constraints |
-|--------|------|-------------|-------------|
-| id | VARCHAR(36) | Unique identifier | PRIMARY KEY |
-| pip_id | VARCHAR(36) | Affected PIP | NOT NULL, FK |
-| step_name | VARCHAR(100) | Step name | NOT NULL |
-| original_deadline | DATE | Original deadline | NOT NULL |
-| new_deadline | DATE | New deadline | NOT NULL |
-| reason | TEXT | Reason for change | NOT NULL |
-| overridden_by | VARCHAR(36) | Admin who made change | NOT NULL, FK |
-| created_at | TIMESTAMP | Change timestamp | AUTO |
+### ENUM Types
+- Used for fixed sets of values (status, roles, etc.)
+- Provides data integrity at database level
+- More efficient than VARCHAR for small sets
 
-**Relationships**:
-- Many-to-One: Many overrides for one PIP (`pip_id`)
-- Many-to-One: Override made by one user (`overridden_by`)
+### TEXT vs VARCHAR
+- **VARCHAR(255)**: For short text (names, titles)
+- **TEXT**: For longer content (descriptions, comments, JSON)
 
-**Indexes**:
-- `idx_pip_id` - Find overrides by PIP
-- `idx_overridden_by` - Find overrides by admin
-
----
-
-### 9. goal_library (Optional)
-
-**Purpose**: Stores reusable goal templates.
-
-| Column | Type | Description | Constraints |
-|--------|------|-------------|-------------|
-| id | VARCHAR(36) | Unique identifier | PRIMARY KEY |
-| title | VARCHAR(255) | Goal title | NOT NULL |
-| description | TEXT | Goal description | NULL |
-| category | VARCHAR(100) | Goal category | NULL |
-| created_by | VARCHAR(36) | Creator user | FK |
-| is_active | BOOLEAN | Active status | DEFAULT TRUE |
-| created_at | TIMESTAMP | Creation time | AUTO |
-| updated_at | TIMESTAMP | Update time | AUTO |
-
-**Relationships**:
-- Many-to-One: Created by one user (`created_by`)
-
----
-
-### 10. pip_templates (Optional)
-
-**Purpose**: Stores reusable PIP templates.
-
-| Column | Type | Description | Constraints |
-|--------|------|-------------|-------------|
-| id | VARCHAR(36) | Unique identifier | PRIMARY KEY |
-| name | VARCHAR(255) | Template name | NOT NULL |
-| description | TEXT | Template description | NULL |
-| goals | JSON | Goal templates | NULL |
-| timeline_config | JSON | Timeline configuration | NULL |
-| created_by | VARCHAR(36) | Creator user | FK |
-| is_active | BOOLEAN | Active status | DEFAULT TRUE |
-| created_at | TIMESTAMP | Creation time | AUTO |
-| updated_at | TIMESTAMP | Update time | AUTO |
-
-**Relationships**:
-- Many-to-One: Created by one user (`created_by`)
-
----
-
-## Entity Relationship Diagram (ERD) Summary
-
-```
-users (1) ──< (N) pips (employee_id)
-users (1) ──< (N) pips (manager_id)
-users (1) ──< (N) pips (hrbp_id)
-users (1) ──< (N) users (manager_id) [self-referential]
-users (1) ──< (N) users (hrbp_id) [self-referential]
-
-pips (1) ──< (N) goals
-pips (1) ──< (N) pip_steps
-pips (1) ──< (N) check_ins
-pips (1) ──< (N) timeline_overrides
-
-users (1) ──< (N) pip_steps (signed_by)
-users (1) ──< (N) notifications
-users (1) ──< (N) audit_logs
-users (1) ──< (N) goal_library (created_by)
-users (1) ──< (N) pip_templates (created_by)
-```
-
----
-
-## Data Types and Constraints
-
-### Enums
-
-**User Roles**: `ADMIN`, `MANAGER`, `EMPLOYEE`, `HRBP`, `EXECUTIVE`
-
-**PIP Status**: `DRAFT`, `PENDING_HRBP_REVIEW`, `PENDING_EMPLOYEE_ACKNOWLEDGEMENT`, `ACTIVE`, `PENDING_EMPLOYEE_SELF_REVIEW`, `PENDING_MANAGER_REVIEW`, `PENDING_HRBP_DECISION`, `COMPLETED`, `OVERDUE`, `CANCELLED`
-
-**Final Outcome**: `SUCCESSFUL`, `UNSUCCESSFUL`, `EXTENDED`, `CLOSED_WITHOUT_ACTION`
-
-**Goal Status**: `ACHIEVED`, `PARTIALLY_ACHIEVED`, `NOT_ACHIEVED`
-
-**Step Name**: `EMPLOYEE_ACKNOWLEDGEMENT`, `ACTIVE_PIP`, `EMPLOYEE_SELF_REVIEW`, `MANAGER_REVIEW`, `HRBP_DECISION`, `HRBP_REVIEW`
-
-**Step Status**: `PENDING`, `DUE_SOON`, `OVERDUE`, `COMPLETED`
+### TIMESTAMP
+- Automatically handles timezone conversion
+- `DEFAULT CURRENT_TIMESTAMP` - sets on insert
+- `ON UPDATE CURRENT_TIMESTAMP` - updates on modification
 
 ---
 
 ## Indexes Strategy
 
 ### Primary Indexes
-- All tables have `id` as PRIMARY KEY
+- All tables have primary key on `id`
 
 ### Foreign Key Indexes
 - All foreign keys are indexed for join performance
 
 ### Query Optimization Indexes
-- Status fields for filtering
-- Date fields for sorting and range queries
-- Email for user lookups
-- Composite indexes for common query patterns
+- Status fields (frequently filtered)
+- Date fields (for sorting and range queries)
+- Email (for login lookups)
+- Role (for authorization queries)
 
 ---
 
 ## Security Considerations
 
-1. **Password Storage**: Passwords are hashed using BCrypt (60 character hash)
-2. **SQL Injection**: Use parameterized queries (JPA handles this)
-3. **Data Validation**: Application layer validates before database
-4. **Access Control**: Row-level security via application logic
-5. **Audit Trail**: All changes tracked in `audit_logs`
+1. **Password Storage**: Passwords are hashed using bcrypt (stored in `password` column)
+2. **SQL Injection**: Use parameterized queries (handled by JPA/Hibernate)
+3. **Access Control**: Enforced at application level based on `role` field
+4. **Audit Trail**: `audit_logs` table tracks all changes
+5. **Soft Deletes**: Consider adding `deleted_at` column for soft deletes (optional)
 
 ---
 
@@ -370,24 +309,61 @@ users (1) ──< (N) pip_templates (created_by)
 
 1. **Indexes**: Strategic indexes on frequently queried columns
 2. **Partitioning**: Consider partitioning `audit_logs` by date for large datasets
-3. **Connection Pooling**: HikariCP configured for optimal connections
-4. **Query Optimization**: Use EXPLAIN to analyze slow queries
-5. **Caching**: Consider Redis for frequently accessed data
-
----
-
-## Backup and Recovery
-
-1. **Regular Backups**: Daily full backups recommended
-2. **Transaction Logs**: Enable binary logging for point-in-time recovery
-3. **Replication**: Consider master-slave replication for high availability
-4. **Retention**: Keep backups for at least 90 days
+3. **Connection Pooling**: Configure HikariCP for optimal connection management
+4. **Query Optimization**: Use EXPLAIN to analyze query performance
 
 ---
 
 ## Migration Strategy
 
 1. **Development**: Use `spring.jpa.hibernate.ddl-auto=update` for development
-2. **Production**: Use `validate` and manage schema with Flyway/Liquibase
-3. **Version Control**: Keep SQL scripts in version control
-4. **Testing**: Test migrations on staging before production
+2. **Production**: Use Flyway or Liquibase for version-controlled migrations
+3. **Backup**: Always backup before schema changes
+4. **Testing**: Test migrations on staging environment first
+
+---
+
+## Sample Queries
+
+### Find all active PIPs for an employee
+```sql
+SELECT * FROM pips 
+WHERE employee_id = ? AND status = 'ACTIVE';
+```
+
+### Find overdue PIPs
+```sql
+SELECT p.*, u.first_name, u.last_name 
+FROM pips p
+JOIN users u ON p.employee_id = u.id
+WHERE p.status IN ('ACTIVE', 'PENDING_EMPLOYEE_SELF_REVIEW', 'PENDING_MANAGER_REVIEW')
+AND (p.employee_self_review_deadline < CURDATE() 
+     OR p.manager_final_review_deadline < CURDATE()
+     OR p.hrbp_final_decision_deadline < CURDATE());
+```
+
+### Get PIP statistics by manager
+```sql
+SELECT 
+    u.id,
+    u.first_name,
+    u.last_name,
+    COUNT(p.id) as total_pips,
+    SUM(CASE WHEN p.status = 'ACTIVE' THEN 1 ELSE 0 END) as active_pips,
+    SUM(CASE WHEN p.final_outcome = 'SUCCESSFUL' THEN 1 ELSE 0 END) as successful_pips
+FROM users u
+LEFT JOIN pips p ON u.id = p.manager_id
+WHERE u.role = 'MANAGER'
+GROUP BY u.id, u.first_name, u.last_name;
+```
+
+---
+
+## Next Steps
+
+1. Review and customize schema for your specific needs
+2. Set up MySQL database and user (see setup guide)
+3. Run `schema.sql` to create tables
+4. Configure Spring Boot connection (see configuration guide)
+5. Test connection and verify tables are created
+6. Run application and verify data persistence
