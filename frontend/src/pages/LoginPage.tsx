@@ -109,19 +109,22 @@ export default function LoginPage() {
 
           <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
             <Typography variant="caption" display="block" gutterBottom>
-              <strong>Default Users:</strong>
+              <strong>Default Users (All use password: password123):</strong>
             </Typography>
             <Typography variant="caption" display="block">
-              Admin: admin@pip.com / admin123
+              Admin: admin@pip.com / password123
             </Typography>
             <Typography variant="caption" display="block">
-              Manager: manager@pip.com / manager123
+              Manager: manager@pip.com / password123
             </Typography>
             <Typography variant="caption" display="block">
-              Employee: employee@pip.com / employee123
+              Employee: employee@pip.com / password123
             </Typography>
             <Typography variant="caption" display="block">
-              HRBP: hrbp@pip.com / hrbp123
+              HRBP: hrbp@pip.com / password123
+            </Typography>
+            <Typography variant="caption" display="block">
+              Executive: executive@pip.com / password123
             </Typography>
           </Box>
         </Paper>

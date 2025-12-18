@@ -31,6 +31,24 @@ if ! command -v mvn &> /dev/null; then
     exit 1
 fi
 
+# Force Java 17 - Set JAVA_HOME and PATH to use Java 17
+if [ -d "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ]; then
+    export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+    export PATH=$JAVA_HOME/bin:$PATH
+    echo "✅ Using Java 17 from: $JAVA_HOME"
+elif [ -d "/opt/homebrew/Cellar/openjdk@17/17.0.17/libexec/openjdk.jdk/Contents/Home" ]; then
+    export JAVA_HOME=/opt/homebrew/Cellar/openjdk@17/17.0.17/libexec/openjdk.jdk/Contents/Home
+    export PATH=$JAVA_HOME/bin:$PATH
+    echo "✅ Using Java 17 from: $JAVA_HOME"
+elif [ -d "/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ]; then
+    export JAVA_HOME=/usr/local/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+    export PATH=$JAVA_HOME/bin:$PATH
+    echo "✅ Using Java 17 from: $JAVA_HOME"
+else
+    echo "⚠️  Java 17 not found in standard locations. Using system Java."
+    echo "   Current Java: $(java -version 2>&1 | head -1)"
+fi
+
 # Navigate to backend directory
 cd "$(dirname "$0")/backend-java" || exit 1
 

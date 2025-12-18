@@ -99,7 +99,7 @@ java -jar target/pip-management-backend-1.0.0.jar
 Started PipManagementApplication in X.XXX seconds
 ```
 
-**Backend will be running on:** http://localhost:3001
+**Backend will be running on:** http://localhost:8080
 
 **Keep this terminal window open!**
 
@@ -121,23 +121,37 @@ npm run dev
 ```
   VITE v5.0.8  ready in XXX ms
 
-  ➜  Local:   http://localhost:3000/
+  ➜  Local:   http://localhost:5173/
   ➜  Network: use --host to expose
 ```
 
-**Frontend will be running on:** http://localhost:3000
+**Frontend will be running on:** http://localhost:5173
 
 ---
+
+### Step 0: Database Setup (First Time Only)
+
+```bash
+# Create database
+mysql -u root -p
+CREATE DATABASE pip_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+EXIT;
+
+# Run schema
+cd backend-java/database
+mysql -u root -p pip_management < schema.sql
+```
 
 ### Step 5: Access the Application
 
 1. **Open your web browser**
-2. **Navigate to:** http://localhost:3000
-3. **Login with default credentials:**
-   - **Admin:** admin@pip.com / admin123
-   - **Manager:** manager@pip.com / manager123
-   - **Employee:** employee@pip.com / employee123
-   - **HRBP:** hrbp@pip.com / hrbp123
+2. **Navigate to:** http://localhost:5173
+3. **Login with default credentials (all use password: `password123`):**
+   - **Admin:** admin@pip.com / password123
+   - **Manager:** manager@pip.com / password123
+   - **Employee:** employee@pip.com / password123
+   - **HRBP:** hrbp@pip.com / password123
+   - **Executive:** executive@pip.com / password123
 
 ---
 
@@ -162,42 +176,40 @@ cd /Users/vanshajsharma/PIP/frontend && npm run dev
 ### 1. Check Backend Health
 Open browser or use curl:
 ```bash
-curl http://localhost:3001/api/health
+curl http://localhost:8080/api/health
 ```
 **Expected:** `{"status":"ok","service":"PIP Management Backend"}`
 
 ### 2. Check Frontend
-Open: http://localhost:3000
+Open: http://localhost:5173
 **Expected:** Login page should load
 
 ### 3. Test Login
-- Use admin@pip.com / admin123
+- Use admin@pip.com / password123
 - Should redirect to dashboard after successful login
 
 ---
 
 ## Troubleshooting
 
-### Issue: Port 3001 Already in Use
+### Issue: Port 8080 Already in Use
 
-**Solution:** Stop the Node.js backend if it's running:
+**Solution:** Kill the process using port 8080:
 ```bash
-# Find and kill process on port 3001
-lsof -ti:3001 | xargs kill -9
+# Find and kill process on port 8080
+lsof -ti:8080 | xargs kill -9
 
 # Or on Windows:
-# netstat -ano | findstr :3001
+# netstat -ano | findstr :8080
 # taskkill /PID <PID> /F
 ```
 
-### Issue: Port 3000 Already in Use
+### Issue: Port 5173 Already in Use
 
-**Solution:** Change Vite port or kill the process:
+**Solution:** Vite will automatically use next available port, or kill the process:
 ```bash
-# Kill process on port 3000
-lsof -ti:3000 | xargs kill -9
-
-# Or change port in frontend/vite.config.ts
+# Kill process on port 5173
+lsof -ti:5173 | xargs kill -9
 ```
 
 ### Issue: Maven Build Fails
@@ -219,9 +231,10 @@ lsof -ti:3000 | xargs kill -9
 ### Issue: Frontend Can't Connect to Backend
 
 **Solutions:**
-1. **Verify backend is running:** Check http://localhost:3001/api/health
-2. **Check CORS:** Backend should allow http://localhost:3000
-3. **Check API URL:** Verify `frontend/src/services/api.ts` points to `http://localhost:3001`
+1. **Verify backend is running:** Check http://localhost:8080/api/health
+2. **Check CORS:** Backend should allow http://localhost:5173
+3. **Check API URL:** Verify `frontend/src/services/api.ts` points to `http://localhost:8080`
+4. **Check environment variable:** Verify `VITE_API_BASE_URL` in `frontend/.env.local`
 
 ### Issue: "Default users not created"
 
@@ -252,10 +265,10 @@ lsof -ti:3000 | xargs kill -9
 ## Development Workflow
 
 ### Daily Development:
-1. **Start Backend:** `cd backend-java && mvn spring-boot:run`
+1. **Start Backend:** `cd backend-java && source ~/.zshrc && mvn spring-boot:run`
 2. **Start Frontend:** `cd frontend && npm run dev`
 3. **Make changes** - Both servers auto-reload on file changes
-4. **Test in browser:** http://localhost:3000
+4. **Test in browser:** http://localhost:5173
 
 ### After Code Changes:
 - **Backend:** Restart Spring Boot (Ctrl+C, then `mvn spring-boot:run`)
@@ -293,14 +306,19 @@ npm run preview
 
 ## Database Access (Development)
 
-The Java backend uses H2 database by default:
+The Java backend uses MySQL database:
 
-1. **Start the backend**
-2. **Open:** http://localhost:3001/h2-console
-3. **JDBC URL:** `jdbc:h2:file:./data/pipdb`
-4. **Username:** `sa`
-5. **Password:** (leave empty)
-6. **Click Connect**
+1. **Connect via MySQL client:**
+   ```bash
+   mysql -u root -p pip_management
+   ```
+
+2. **Or use MySQL Workbench / DBeaver / TablePlus**
+   - Host: localhost
+   - Port: 3306
+   - Database: pip_management
+   - Username: root
+   - Password: (your MySQL password)
 
 ---
 
@@ -315,10 +333,11 @@ The Java backend uses H2 database by default:
 
 ## Summary
 
-✅ **Backend:** http://localhost:3001 (Java Spring Boot)  
-✅ **Frontend:** http://localhost:3000 (React + Vite)  
-✅ **Database:** H2 (file-based, auto-created)  
-✅ **Default Admin:** admin@pip.com / admin123
+✅ **Backend:** http://localhost:8080 (Java Spring Boot)  
+✅ **Frontend:** http://localhost:5173 (React + Vite)  
+✅ **Database:** MySQL (pip_management database)  
+✅ **Default Admin:** admin@pip.com / password123  
+✅ **All Users:** All test users use password `password123`
 
 **Both servers must be running simultaneously for the application to work!**
 

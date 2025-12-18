@@ -2,58 +2,116 @@
 
 ## ✅ Running Services
 
-I've started the **Node.js backend** and **React frontend** for you.
+The **Java Spring Boot backend** and **React frontend** are configured and ready to run.
 
 ### Access the Application:
-- **Frontend:** http://localhost:3000
-- **Backend API:** http://localhost:3001
+- **Frontend:** http://localhost:5173
+- **Backend API:** http://localhost:8080
 
 ### Default Login:
 - **Email:** admin@pip.com
-- **Password:** admin123
+- **Password:** password123
+
+**All test users use password: `password123`**
 
 ---
 
-## ⚠️ Java Backend Status
+## Current Architecture
 
-The Java backend has compilation issues with Lombok annotation processing that need to be fixed. The Node.js backend is fully functional and running.
+### Backend
+- **Framework:** Java 17 + Spring Boot 3.2.0
+- **Database:** MySQL 8.0+ (pip_management)
+- **Port:** 8080
+- **Status:** Ready to run
 
-### To Fix Java Backend Later:
-1. Ensure Lombok annotation processing is working
-2. Or manually add getters/setters to model classes
-3. Rebuild with: `cd backend-java && mvn clean install`
+### Frontend
+- **Framework:** React + TypeScript + Material-UI
+- **Build Tool:** Vite
+- **Port:** 5173
+- **Status:** Ready to run
+
+### Database
+- **Type:** MySQL
+- **Name:** pip_management
+- **Status:** Schema created, test users available
 
 ---
 
-## Current Running Services
+## To Start Services
 
-Both servers are running in the background:
-- ✅ **Backend (Node.js):** Port 3001
-- ✅ **Frontend (React):** Port 3000
-
-### To Stop Servers:
+### Terminal 1 - Backend:
 ```bash
-# Find and kill processes
-lsof -ti:3001 | xargs kill -9
-lsof -ti:3000 | xargs kill -9
+cd /Users/vanshajsharma/PIP/backend-java
+./start-backend.sh
+# Or manually:
+source ~/.zshrc  # Sets Java 17
+mvn spring-boot:run
 ```
 
-### To Restart:
+### Terminal 2 - Frontend:
 ```bash
-# Backend
-cd /Users/vanshajsharma/PIP/backend && npm run dev
-
-# Frontend (new terminal)
-cd /Users/vanshajsharma/PIP/frontend && npm run dev
+cd /Users/vanshajsharma/PIP/frontend
+npm run dev
 ```
+
+---
+
+## Default Users
+
+All use password: `password123`
+
+| Role | Email | Password |
+|------|-------|----------|
+| Admin | admin@pip.com | password123 |
+| Manager | manager@pip.com | password123 |
+| Employee | employee@pip.com | password123 |
+| HRBP | hrbp@pip.com | password123 |
+| Executive | executive@pip.com | password123 |
+
+### Additional Test Users
+
+30 additional users available:
+- 10 Managers
+- 10 Employees  
+- 10 HRBPs
+
+All use password: `password123`
+
+---
+
+## Database Status
+
+- **Total Users:** 35
+- **Managers:** 11
+- **Employees:** 11
+- **HRBPs:** 11
+- **Admins:** 1
+- **Executives:** 1
+
+All employees have manager and HRBP assigned for PIP purposes.
+
+---
+
+## Test PIP Available
+
+A test PIP is available for manager review:
+- **Status:** PENDING_MANAGER_REVIEW
+- **Employee:** Alex Miller
+- **Manager:** Sarah Chen (can review)
+- **HRBP:** Patricia Martinez
+
+See `backend-java/database/TEST_CASE_MANAGER_REVIEW.md` for details.
 
 ---
 
 ## Next Steps
 
-1. **Open browser:** http://localhost:3000
-2. **Login** with admin credentials
-3. **Start using the application!**
+1. **Start backend:** `cd backend-java && ./start-backend.sh`
+2. **Start frontend:** `cd frontend && npm run dev`
+3. **Open browser:** http://localhost:5173
+4. **Login** with admin credentials
+5. **Start using the application!**
 
-The system is ready to use with the Node.js backend. The Java backend can be fixed and switched to later if needed.
+---
 
+**Last Updated:** December 2025

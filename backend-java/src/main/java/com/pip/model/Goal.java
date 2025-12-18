@@ -14,6 +14,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public class Goal {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "CHAR(36)")
     private String id;
 
     @Column(nullable = false)

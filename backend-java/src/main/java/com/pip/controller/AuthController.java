@@ -26,14 +26,22 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
         try {
+            System.out.println("Login attempt - Email: " + request.getEmail());
             User user = userService.getUserByEmail(request.getEmail())
-                    .orElseThrow(() -> new RuntimeException("Invalid email or password"));
+                    .orElseThrow(() -> {
+                        System.out.println("User not found: " + request.getEmail());
+                        return new RuntimeException("Invalid email or password");
+                    });
 
             if (!user.getIsActive()) {
+                System.out.println("User account is inactive: " + request.getEmail());
                 return ResponseEntity.status(401).body(Map.of("error", "Account is inactive"));
             }
 
-            if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            boolean passwordMatches = passwordEncoder.matches(request.getPassword(), user.getPassword());
+            System.out.println("Password match result: " + passwordMatches);
+            if (!passwordMatches) {
+                System.out.println("Password mismatch for user: " + request.getEmail());
                 return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
             }
 

@@ -15,15 +15,16 @@ import java.util.List;
 public class PIP {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "CHAR(36)")
     private String id;
 
-    @Column(name = "employee_id", nullable = false)
+    @Column(name = "employee_id", nullable = false, columnDefinition = "CHAR(36)")
     private String employeeId;
 
-    @Column(name = "manager_id", nullable = false)
+    @Column(name = "manager_id", nullable = false, columnDefinition = "CHAR(36)")
     private String managerId;
 
-    @Column(name = "hrbp_id", nullable = false)
+    @Column(name = "hrbp_id", nullable = false, columnDefinition = "CHAR(36)")
     private String hrbpId;
 
     @Column(columnDefinition = "TEXT")

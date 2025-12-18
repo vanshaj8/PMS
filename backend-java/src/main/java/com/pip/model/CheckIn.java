@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "check_ins")
@@ -14,9 +15,10 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public class CheckIn {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "CHAR(36)")
     private String id;
 
-    @Column(name = "pip_id", nullable = false)
+    @Column(name = "pip_id", nullable = false, columnDefinition = "CHAR(36)")
     private String pipId;
 
     @Column(nullable = false)
@@ -29,7 +31,10 @@ public class CheckIn {
     private String attachments; // JSON array as string
 
     @Column(name = "created_at")
-    private String createdAt;
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "pip_id", insertable = false, updatable = false)

@@ -5,36 +5,43 @@ spring:
   application:
     name: pip-management-backend
   
+  # MySQL DataSource Configuration
   datasource:
-    url: jdbc:h2:file:./data/pipdb
-    driverClassName: org.h2.Driver
-    username: sa
-    password: 
+    url: jdbc:mysql://localhost:3306/pip_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&useUnicode=true
+    username: root
+    password: Vanshaj@8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    
+    # HikariCP Connection Pool Configuration
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      auto-commit: true
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+      pool-name: PIPManagementHikariPool
+      leak-detection-threshold: 60000
   
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
-  
+  # JPA / Hibernate Configuration
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
+    database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
-      ddl-auto: update
+      ddl-auto: none  # Use 'none' since schema is manually created and managed
     show-sql: false
     properties:
       hibernate:
         format_sql: true
+        jdbc:
+          batch_size: 20
+          order_inserts: true
+          order_updates: true
   
-  # For PostgreSQL (uncomment for production)
-  # datasource:
-  #   url: jdbc:postgresql://localhost:5432/pipdb
-  #   username: postgres
-  #   password: postgres
-  #   driver-class-name: org.postgresql.Driver
-  # jpa:
-  #   database-platform: org.hibernate.dialect.PostgreSQLDialect
-  #   hibernate:
-  #     ddl-auto: update
+  # H2 Console (disabled for MySQL)
+  h2:
+    console:
+      enabled: false
 
 jwt:
   secret: your-super-secret-jwt-key-change-in-production

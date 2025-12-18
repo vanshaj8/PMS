@@ -218,7 +218,7 @@ public class PIPService {
         checkIn.setDate(request.getDate());
         checkIn.setNotes(request.getNotes());
         checkIn.setAttachments(request.getAttachments());
-        checkIn.setCreatedAt(LocalDateTime.now().format(DATE_FORMATTER));
+        checkIn.setCreatedAt(LocalDateTime.now());
 
         CheckIn saved = checkInRepository.save(checkIn);
         pip.getCheckIns().add(saved);

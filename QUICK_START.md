@@ -59,20 +59,48 @@ npm run dev
 
 ---
 
+## Database Setup (First Time Only)
+
+```bash
+# Create database
+mysql -u root -p
+CREATE DATABASE pip_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+# Run schema
+cd backend-java/database
+mysql -u root -p pip_management < schema.sql
+
+# Create test users (optional)
+mysql -u root -p pip_management < create_random_users.sql
+mysql -u root -p pip_management < assign_all_employee_relationships.sql
+mysql -u root -p pip_management < update_all_passwords.sql
+```
+
+## Configure Backend
+
+Edit `backend-java/src/main/resources/application.yml`:
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/pip_management
+    username: root
+    password: your_mysql_password
+```
+
 ## Access the Application
 
-1. **Open browser:** http://localhost:3000
+1. **Open browser:** http://localhost:5173
 2. **Login with:**
    - Email: `admin@pip.com`
-   - Password: `admin123`
+   - Password: `password123`
 
 ---
 
 ## What's Running?
 
-- **Backend:** http://localhost:3001 (Java Spring Boot)
-- **Frontend:** http://localhost:3000 (React + Vite)
-- **Database:** H2 (file-based, auto-created)
+- **Backend:** http://localhost:8080 (Java Spring Boot)
+- **Frontend:** http://localhost:5173 (React + Vite)
+- **Database:** MySQL (pip_management database)
 
 ---
 
@@ -89,14 +117,31 @@ export PATH="/opt/homebrew/opt/openjdk@17/bin:$PATH"
 brew install maven
 ```
 
-### Port 3001 already in use
+### Port 8080 already in use
 ```bash
-lsof -ti:3001 | xargs kill -9
+lsof -ti:8080 | xargs kill -9
 ```
 
-### Port 3000 already in use
+### Port 5173 already in use
 ```bash
-lsof -ti:3000 | xargs kill -9
+lsof -ti:5173 | xargs kill -9
+```
+
+### Java Version Error
+```bash
+# Ensure Java 17 is active
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+export PATH=$JAVA_HOME/bin:$PATH
+java -version  # Should show 17.x.x
+```
+
+### Database Connection Error
+```bash
+# Verify MySQL is running
+mysql -u root -p
+
+# Check database exists
+SHOW DATABASES;
 ```
 
 ---

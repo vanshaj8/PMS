@@ -128,8 +128,8 @@ If you have Spring Tools installed:
      ```
 
 2. **Test the Application**
-   - Open browser: http://localhost:3001
-   - Check health endpoint: http://localhost:3001/health
+   - Open browser: http://localhost:8080
+   - Check health endpoint: http://localhost:8080/api/health
 
 3. **Check for Errors**
    - View → Problems (to see any compilation errors)

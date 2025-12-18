@@ -1,84 +1,136 @@
 # Quick Start Guide - Java Backend
 
 ## Prerequisites
-- Java 17 or higher
-- Maven 3.6+
+- **Java 17** (required - project won't compile with Java 25+)
+- **Maven 3.6+**
+- **MySQL 8.0+**
 
 ## Setup & Run
 
-1. **Navigate to backend-java directory:**
-   ```bash
-   cd backend-java
-   ```
+### 1. Set Java 17
 
-2. **Build the project:**
-   ```bash
-   mvn clean install
-   ```
+```bash
+# macOS (Homebrew)
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+export PATH=$JAVA_HOME/bin:$PATH
 
-3. **Run the application:**
-   ```bash
-   mvn spring-boot:run
-   ```
+# Verify
+java -version  # Should show 17.x.x
+```
 
-   Or use your IDE to run `PipManagementApplication.java`
+### 2. Database Setup (First Time)
+
+```bash
+# Create database
+mysql -u root -p
+CREATE DATABASE pip_management CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+EXIT;
+
+# Run schema
+cd database
+mysql -u root -p pip_management < schema.sql
+```
+
+### 3. Configure Application
+
+Edit `src/main/resources/application.yml`:
+```yaml
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/pip_management
+    username: root
+    password: your_mysql_password
+```
+
+### 4. Build and Run
+
+```bash
+# Navigate to backend-java directory
+cd backend-java
+
+# Build the project
+mvn clean install
+
+# Run the application
+mvn spring-boot:run
+```
+
+Or use your IDE to run `PipManagementApplication.java`
 
 ## Default Configuration
 
-- **Port:** 3001 (same as Node.js backend)
-- **Database:** H2 (file-based, auto-created)
-- **CORS:** Enabled for http://localhost:3000
+- **Port:** 8080
+- **Database:** MySQL (pip_management)
+- **CORS:** Enabled for http://localhost:5173, http://localhost:5174, http://localhost:3000
 
 ## Default Users
 
-Automatically created on first run:
-- **Admin:** admin@pip.com / admin123
-- **Manager:** manager@pip.com / manager123
-- **Employee:** employee@pip.com / employee123
-- **HRBP:** hrbp@pip.com / hrbp123
-- **Executive:** executive@pip.com / executive123
+Automatically created on first run (all use password: `password123`):
+- **Admin:** admin@pip.com / password123
+- **Manager:** manager@pip.com / password123
+- **Employee:** employee@pip.com / password123
+- **HRBP:** hrbp@pip.com / password123
+- **Executive:** executive@pip.com / password123
+
+### Additional Test Users
+
+30 additional users available (see `database/create_random_users.sql`). All use `password123`.
 
 ## API Endpoints
 
-All endpoints match the Node.js backend:
 - `POST /api/auth/login` - Login
 - `GET /api/auth/me` - Get current user
 - `GET /api/pips` - List PIPs (filtered by role)
 - `POST /api/pips` - Create PIP (Manager only)
 - `GET /api/pips/:id` - Get PIP details
-- `POST /api/pips/:id/acknowledge` - Employee acknowledgement
-- `POST /api/pips/:id/self-review` - Employee self-review
-- `POST /api/pips/:id/manager-review` - Manager review
-- `POST /api/pips/:id/final-decision` - HRBP final decision
+- `PUT /api/pips/:id/steps/:stepName` - Update step status
 - `GET /api/users` - List users (Admin only)
 - `GET /api/users/for-pip-creation` - Get users for PIP creation
-- `GET /api/dashboard/stats` - Dashboard statistics
+- `GET /api/health` - Health check
 
 ## Frontend Integration
 
-The frontend should work without any changes since:
-- All API endpoints match the Node.js backend
-- Response formats are identical
-- Authentication uses the same JWT format
+The frontend connects to:
+- **API Base URL:** http://localhost:8080
+- **Frontend URL:** http://localhost:5173
 
-## Database Access (H2 Console)
+## Database Access
 
-1. Start the application
-2. Navigate to: http://localhost:3001/h2-console
-3. JDBC URL: `jdbc:h2:file:./data/pipdb`
-4. Username: `sa`
-5. Password: (leave empty)
+Connect via MySQL client:
+```bash
+mysql -u root -p pip_management
+```
 
-## Switching to PostgreSQL
-
-1. Uncomment PostgreSQL configuration in `src/main/resources/application.yml`
-2. Comment out H2 configuration
-3. Create a PostgreSQL database named `pipdb`
-4. Restart the application
+Or use MySQL Workbench / DBeaver / TablePlus:
+- Host: localhost
+- Port: 3306
+- Database: pip_management
+- Username: root
+- Password: (your MySQL password)
 
 ## Troubleshooting
 
-- **Port already in use:** Change port in `application.yml` or stop the Node.js backend
-- **Compilation errors:** Ensure Java 17+ is installed: `java -version`
-- **Maven not found:** Install Maven or use Maven wrapper: `./mvnw spring-boot:run`
+- **Port already in use:** Change port in `application.yml` or kill process: `lsof -ti:8080 | xargs kill -9`
+- **Compilation errors:** Ensure Java 17 is active: `java -version` (must show 17.x.x)
+- **Maven not found:** Install Maven: `brew install maven`
+- **Database connection error:** Verify MySQL is running and credentials are correct
+- **Java version error:** Use Java 17, not Java 25+
 
+## Quick Commands
+
+```bash
+# Start backend
+cd backend-java
+./start-backend.sh
+
+# Or manually
+source ~/.zshrc  # Sets Java 17
+mvn spring-boot:run
+
+# Check health
+curl http://localhost:8080/api/health
+```
+
+---
+
+**Last Updated:** December 2025

@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "CHAR(36)")
     private String id;
 
     @Column(nullable = false, unique = true)
@@ -35,10 +36,10 @@ public class User {
     private String department;
     private String location;
 
-    @Column(name = "manager_id")
+    @Column(name = "manager_id", columnDefinition = "CHAR(36)")
     private String managerId;
 
-    @Column(name = "hrbp_id")
+    @Column(name = "hrbp_id", columnDefinition = "CHAR(36)")
     private String hrbpId;
 
     @Column(name = "is_active")

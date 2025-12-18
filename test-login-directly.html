@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Direct Login Test</title>
+</head>
+<body>
+    <h1>Direct Login Test</h1>
+    <form id="loginForm">
+        <label>Email: <input type="email" id="email" value="admin@pip.com" /></label><br><br>
+        <label>Password: <input type="password" id="password" value="password123" /></label><br><br>
+        <button type="submit">Login</button>
+    </form>
+    <div id="result" style="margin-top: 20px;"></div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = 'Logging in...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.token) {
+                    resultDiv.innerHTML = '<p style="color: green;">✅ LOGIN SUCCESS!</p><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                } else {
+                    resultDiv.innerHTML = '<p style="color: red;">❌ LOGIN FAILED</p><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = '<p style="color: red;">❌ ERROR: ' + error.message + '</p>';
+            }
+        });
+    </script>
+</body>
+</html>

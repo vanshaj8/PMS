@@ -19,9 +19,13 @@
 # Install Java 17
 brew install openjdk@17
 
-# Set Java 17 as default
-echo 'export PATH="/opt/homebrew/opt/openjdk@17/bin:$PATH"' >> ~/.zshrc
-echo 'export JAVA_HOME="/opt/homebrew/opt/openjdk@17"' >> ~/.zshrc
+# Set Java 17 as default (correct path)
+if [ -d "/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home" ]; then
+    export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
+    export PATH=$JAVA_HOME/bin:$PATH
+    echo 'export JAVA_HOME="/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home"' >> ~/.zshrc
+    echo 'export PATH=$JAVA_HOME/bin:$PATH' >> ~/.zshrc
+fi
 source ~/.zshrc
 
 # Verify installation

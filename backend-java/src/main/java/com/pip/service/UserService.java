@@ -116,19 +116,52 @@ public class UserService implements UserDetailsService {
 
     @Transactional
     public void initializeDefaultUsers() {
-        if (userRepository.count() > 0) {
-            return; // Already initialized
-        }
-
-        List<User> defaultUsers = List.of(
-            createUserWithPassword("admin@pip.com", "admin123", "Admin", "User", UserRole.ADMIN),
-            createUserWithPassword("manager@pip.com", "manager123", "Manager", "User", UserRole.MANAGER),
-            createUserWithPassword("employee@pip.com", "employee123", "Employee", "User", UserRole.EMPLOYEE),
-            createUserWithPassword("hrbp@pip.com", "hrbp123", "HRBP", "User", UserRole.HRBP),
-            createUserWithPassword("executive@pip.com", "executive123", "Executive", "User", UserRole.EXECUTIVE)
+        String defaultPassword = "password123";
+        
+        // List of default users to ensure exist
+        List<DefaultUserInfo> defaultUserInfos = List.of(
+            new DefaultUserInfo("admin@pip.com", defaultPassword, "Admin", "User", UserRole.ADMIN),
+            new DefaultUserInfo("manager@pip.com", defaultPassword, "Manager", "User", UserRole.MANAGER),
+            new DefaultUserInfo("employee@pip.com", defaultPassword, "Employee", "User", UserRole.EMPLOYEE),
+            new DefaultUserInfo("hrbp@pip.com", defaultPassword, "HRBP", "User", UserRole.HRBP),
+            new DefaultUserInfo("executive@pip.com", defaultPassword, "Executive", "User", UserRole.EXECUTIVE)
         );
 
-        userRepository.saveAll(defaultUsers);
+        // Create or update each default user
+        for (DefaultUserInfo userInfo : defaultUserInfos) {
+            Optional<User> existingUser = userRepository.findByEmailIgnoreCase(userInfo.email);
+            if (existingUser.isPresent()) {
+                // Update existing user with correct password
+                User user = existingUser.get();
+                user.setPassword(passwordEncoder.encode(userInfo.password));
+                user.setFirstName(userInfo.firstName);
+                user.setLastName(userInfo.lastName);
+                user.setRole(userInfo.role);
+                user.setIsActive(true);
+                userRepository.save(user);
+            } else {
+                // Create new user
+                User newUser = createUserWithPassword(userInfo.email, userInfo.password, 
+                    userInfo.firstName, userInfo.lastName, userInfo.role);
+                userRepository.save(newUser);
+            }
+        }
+    }
+
+    private static class DefaultUserInfo {
+        String email;
+        String password;
+        String firstName;
+        String lastName;
+        UserRole role;
+
+        DefaultUserInfo(String email, String password, String firstName, String lastName, UserRole role) {
+            this.email = email;
+            this.password = password;
+            this.firstName = firstName;
+            this.lastName = lastName;
+            this.role = role;
+        }
     }
 
     private User createUserWithPassword(String email, String password, String firstName, String lastName, UserRole role) {

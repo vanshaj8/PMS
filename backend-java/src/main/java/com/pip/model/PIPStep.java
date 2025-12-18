@@ -14,6 +14,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 public class PIPStep {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "CHAR(36)")
     private String id;
 
     @Enumerated(EnumType.STRING)
@@ -33,10 +34,10 @@ public class PIPStep {
     @Column(columnDefinition = "TEXT")
     private String comments;
 
-    @Column(name = "signed_by")
+    @Column(name = "signed_by", columnDefinition = "CHAR(36)")
     private String signedBy;
 
-    @Column(name = "pip_id", nullable = false)
+    @Column(name = "pip_id", nullable = false, columnDefinition = "CHAR(36)")
     private String pipId;
     
     @ManyToOne(fetch = FetchType.LAZY)
