@@ -68,10 +68,39 @@ public class PIP {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // Actual timestamps for deadline calculation
+    @Column(name = "hrbp_approved_at")
+    private LocalDateTime hrbpApprovedAt; // When HRBP approved initial review
+
+    @Column(name = "employee_acknowledged_at")
+    private LocalDateTime employeeAcknowledgedAt; // When employee acknowledged
+
+    @Column(name = "active_period_started_at")
+    private LocalDateTime activePeriodStartedAt; // When active period actually started
+
+    @Column(name = "active_period_ended_at")
+    private LocalDateTime activePeriodEndedAt; // When active period ended
+
+    @Column(name = "self_review_submitted_at")
+    private LocalDateTime selfReviewSubmittedAt; // When employee submitted self-review
+
+    @Column(name = "manager_review_completed_at")
+    private LocalDateTime managerReviewCompletedAt; // When manager completed review
+
+    // Extension tracking
+    @Column(name = "extension_count")
+    private Integer extensionCount = 0; // Number of times PIP has been extended
+
+    @Column(name = "original_active_duration")
+    private Integer originalActiveDuration; // Original duration before extensions
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
+        if (extensionCount == null) {
+            extensionCount = 0;
+        }
     }
 
     @PreUpdate

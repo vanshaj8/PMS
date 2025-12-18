@@ -42,19 +42,36 @@ export default function TimelineEditorPage() {
     try {
       const data = await pipService.getPIP(id!);
       setPip(data);
+      
+      // Use durations from timeline, calculated deadlines from steps
+      const ackStep = data.steps.find(s => s.step === 'employee_acknowledgement');
+      const selfReviewStep = data.steps.find(s => s.step === 'employee_self_review');
+      const managerStep = data.steps.find(s => s.step === 'manager_review');
+      const hrbpStep = data.steps.find(s => s.step === 'hrbp_decision');
+      
       setOriginalTimeline({
-        employeeAcknowledgementDeadline: data.timeline.employeeAcknowledgementDeadline,
+        employeeAcknowledgementDuration: data.timeline.employeeAcknowledgementDuration || 5,
         pipActiveDuration: data.timeline.pipActiveDuration,
-        employeeSelfReviewDeadline: data.timeline.employeeSelfReviewDeadline,
-        managerFinalReviewDeadline: data.timeline.managerFinalReviewDeadline,
-        hrbpFinalDecisionDeadline: data.timeline.hrbpFinalDecisionDeadline,
+        selfReviewBufferDuration: data.timeline.selfReviewBufferDuration || 3,
+        managerReviewBufferDuration: data.timeline.managerReviewBufferDuration || 5,
+        hrbpDecisionBufferDuration: data.timeline.hrbpDecisionBufferDuration || 5,
+        // Calculated deadlines (read-only)
+        employeeAcknowledgementDeadline: ackStep?.dueDate || data.timeline.employeeAcknowledgementDeadline,
+        employeeSelfReviewDeadline: selfReviewStep?.dueDate || data.timeline.employeeSelfReviewDeadline,
+        managerFinalReviewDeadline: managerStep?.dueDate || data.timeline.managerFinalReviewDeadline,
+        hrbpFinalDecisionDeadline: hrbpStep?.dueDate || data.timeline.hrbpFinalDecisionDeadline,
       });
       setEditedTimeline({
-        employeeAcknowledgementDeadline: data.timeline.employeeAcknowledgementDeadline,
+        employeeAcknowledgementDuration: data.timeline.employeeAcknowledgementDuration || 5,
         pipActiveDuration: data.timeline.pipActiveDuration,
-        employeeSelfReviewDeadline: data.timeline.employeeSelfReviewDeadline,
-        managerFinalReviewDeadline: data.timeline.managerFinalReviewDeadline,
-        hrbpFinalDecisionDeadline: data.timeline.hrbpFinalDecisionDeadline,
+        selfReviewBufferDuration: data.timeline.selfReviewBufferDuration || 3,
+        managerReviewBufferDuration: data.timeline.managerReviewBufferDuration || 5,
+        hrbpDecisionBufferDuration: data.timeline.hrbpDecisionBufferDuration || 5,
+        // Calculated deadlines (read-only)
+        employeeAcknowledgementDeadline: ackStep?.dueDate || data.timeline.employeeAcknowledgementDeadline,
+        employeeSelfReviewDeadline: selfReviewStep?.dueDate || data.timeline.employeeSelfReviewDeadline,
+        managerFinalReviewDeadline: managerStep?.dueDate || data.timeline.managerFinalReviewDeadline,
+        hrbpFinalDecisionDeadline: hrbpStep?.dueDate || data.timeline.hrbpFinalDecisionDeadline,
       });
     } catch (error) {
       console.error('Failed to load PIP:', error);
@@ -69,30 +86,24 @@ export default function TimelineEditorPage() {
       return;
     }
 
-    if (!id || !editedTimeline) return;
+    if (!id || !editedTimeline || !pip) return;
 
     setSaving(true);
     try {
-      // Update each step timeline
-      for (const step of pip?.steps || []) {
-        let newDueDate: string | undefined;
-        
-        if (step.step === 'employee_acknowledgement') {
-          newDueDate = editedTimeline.employeeAcknowledgementDeadline;
-        } else if (step.step === 'employee_self_review') {
-          newDueDate = editedTimeline.employeeSelfReviewDeadline;
-        } else if (step.step === 'manager_review') {
-          newDueDate = editedTimeline.managerFinalReviewDeadline;
-        } else if (step.step === 'hrbp_decision') {
-          newDueDate = editedTimeline.hrbpFinalDecisionDeadline;
-        }
+      // Update timeline durations - backend will recalculate deadlines
+      const updatedTimeline = {
+        employeeAcknowledgementDuration: editedTimeline.employeeAcknowledgementDuration,
+        pipActiveDuration: editedTimeline.pipActiveDuration,
+        selfReviewBufferDuration: editedTimeline.selfReviewBufferDuration,
+        managerReviewBufferDuration: editedTimeline.managerReviewBufferDuration,
+        hrbpDecisionBufferDuration: editedTimeline.hrbpDecisionBufferDuration,
+      };
 
-        if (newDueDate && newDueDate !== step.dueDate) {
-          await pipService.overrideTimeline(id, step.step, newDueDate, reason);
-        }
-      }
+      // Use override timeline endpoint with reason
+      // Note: Backend should update durations and recalculate deadlines
+      await pipService.overrideTimeline(id, 'timeline', JSON.stringify(updatedTimeline), reason);
 
-      showToast('Timeline updated successfully', 'success');
+      showToast('Timeline durations updated successfully. Deadlines will be recalculated.', 'success');
       navigate(`/pips/${id}`);
     } catch (error: any) {
       showToast(error.response?.data?.error || 'Failed to update timeline', 'error');
@@ -143,39 +154,46 @@ export default function TimelineEditorPage() {
       <Alert severity="warning" sx={{ mb: 3 }}>
         <strong>Admin Override:</strong> You are modifying the timeline for this PIP. All changes will be logged and require a reason.
       </Alert>
+      <Alert severity="info" sx={{ mb: 3 }}>
+        <strong>Note:</strong> Deadlines are calculated automatically from durations. You can only modify durations. Calculated deadlines are shown for reference only.
+      </Alert>
 
       <Grid container spacing={3}>
         {/* Original Timeline (Read-only) */}
         <Grid item xs={12} md={6}>
-          <ModernCard title="Original Timeline" subtitle="Locked - Cannot be modified">
+          <ModernCard title="Current Timeline" subtitle="Calculated Deadlines (Read-only)">
             <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
-                  <Typography variant="caption" color="text.secondary">Employee Acknowledgement</Typography>
-                  <Typography variant="body1">
-                    {format(new Date(originalTimeline.employeeAcknowledgementDeadline), 'MMM dd, yyyy')}
+                  <Typography variant="caption" color="text.secondary">Employee Acknowledgement Duration</Typography>
+                  <Typography variant="body1">{originalTimeline.employeeAcknowledgementDuration || 5} days</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Calculated Deadline: {originalTimeline.employeeAcknowledgementDeadline ? format(new Date(originalTimeline.employeeAcknowledgementDeadline), 'MMM dd, yyyy') : 'Not calculated'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="caption" color="text.secondary">PIP Duration</Typography>
+                  <Typography variant="caption" color="text.secondary">PIP Active Duration</Typography>
                   <Typography variant="body1">{originalTimeline.pipActiveDuration} days</Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="caption" color="text.secondary">Employee Self-Review</Typography>
-                  <Typography variant="body1">
-                    {format(new Date(originalTimeline.employeeSelfReviewDeadline), 'MMM dd, yyyy')}
+                  <Typography variant="caption" color="text.secondary">Self-Review Buffer</Typography>
+                  <Typography variant="body1">{originalTimeline.selfReviewBufferDuration || 3} days</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Calculated Deadline: {originalTimeline.employeeSelfReviewDeadline ? format(new Date(originalTimeline.employeeSelfReviewDeadline), 'MMM dd, yyyy') : 'Not calculated'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="caption" color="text.secondary">Manager Review</Typography>
-                  <Typography variant="body1">
-                    {format(new Date(originalTimeline.managerFinalReviewDeadline), 'MMM dd, yyyy')}
+                  <Typography variant="caption" color="text.secondary">Manager Review Buffer</Typography>
+                  <Typography variant="body1">{originalTimeline.managerReviewBufferDuration || 5} days</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Calculated Deadline: {originalTimeline.managerFinalReviewDeadline ? format(new Date(originalTimeline.managerFinalReviewDeadline), 'MMM dd, yyyy') : 'Not calculated'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="caption" color="text.secondary">HRBP Decision</Typography>
-                  <Typography variant="body1">
-                    {format(new Date(originalTimeline.hrbpFinalDecisionDeadline), 'MMM dd, yyyy')}
+                  <Typography variant="caption" color="text.secondary">HRBP Decision Buffer</Typography>
+                  <Typography variant="body1">{originalTimeline.hrbpDecisionBufferDuration || 5} days</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Calculated Deadline: {originalTimeline.hrbpFinalDecisionDeadline ? format(new Date(originalTimeline.hrbpFinalDecisionDeadline), 'MMM dd, yyyy') : 'Not calculated'}
                   </Typography>
                 </Grid>
               </Grid>
@@ -183,24 +201,28 @@ export default function TimelineEditorPage() {
           </ModernCard>
         </Grid>
 
-        {/* Editable Timeline */}
+        {/* Editable Timeline - Durations Only */}
         <Grid item xs={12} md={6}>
-          <ModernCard title="Edited Timeline" subtitle="Modify dates as needed">
+          <ModernCard title="Edit Durations" subtitle="Modify durations (deadlines recalculate automatically)">
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  type="date"
-                  label="Employee Acknowledgement Deadline"
-                  value={editedTimeline.employeeAcknowledgementDeadline}
+                  type="number"
+                  label="Employee Acknowledgement Duration (days)"
+                  value={editedTimeline.employeeAcknowledgementDuration}
                   onChange={(e) =>
                     setEditedTimeline({
                       ...editedTimeline,
-                      employeeAcknowledgementDeadline: e.target.value,
+                      employeeAcknowledgementDuration: parseInt(e.target.value) || 5,
                     })
                   }
-                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: 3, max: 7 }}
+                  helperText="Days from HRBP approval (3-7 days)"
                 />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  Calculated Deadline: {editedTimeline.employeeAcknowledgementDeadline ? format(new Date(editedTimeline.employeeAcknowledgementDeadline), 'MMM dd, yyyy') : 'Will be calculated'}
+                </Typography>
               </Grid>
               <Grid item xs={12}>
                 <TextField
@@ -211,56 +233,69 @@ export default function TimelineEditorPage() {
                   onChange={(e) =>
                     setEditedTimeline({
                       ...editedTimeline,
-                      pipActiveDuration: parseInt(e.target.value) || 30,
+                      pipActiveDuration: parseInt(e.target.value) || 50,
                     })
                   }
-                  inputProps={{ min: 1, max: 365 }}
+                  inputProps={{ min: 30, max: 90 }}
+                  helperText="Days from employee acknowledgement (30-90 days)"
                 />
               </Grid>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  type="date"
-                  label="Employee Self-Review Deadline"
-                  value={editedTimeline.employeeSelfReviewDeadline}
+                  type="number"
+                  label="Self-Review Buffer Duration (days)"
+                  value={editedTimeline.selfReviewBufferDuration}
                   onChange={(e) =>
                     setEditedTimeline({
                       ...editedTimeline,
-                      employeeSelfReviewDeadline: e.target.value,
+                      selfReviewBufferDuration: parseInt(e.target.value) || 3,
                     })
                   }
-                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: 1, max: 5 }}
+                  helperText="Days after active period ends (1-5 days)"
                 />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  Calculated Deadline: {editedTimeline.employeeSelfReviewDeadline ? format(new Date(editedTimeline.employeeSelfReviewDeadline), 'MMM dd, yyyy') : 'Will be calculated'}
+                </Typography>
               </Grid>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  type="date"
-                  label="Manager Review Deadline"
-                  value={editedTimeline.managerFinalReviewDeadline}
+                  type="number"
+                  label="Manager Review Buffer Duration (days)"
+                  value={editedTimeline.managerReviewBufferDuration}
                   onChange={(e) =>
                     setEditedTimeline({
                       ...editedTimeline,
-                      managerFinalReviewDeadline: e.target.value,
+                      managerReviewBufferDuration: parseInt(e.target.value) || 5,
                     })
                   }
-                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: 3, max: 7 }}
+                  helperText="Days after self-review submission (3-7 days)"
                 />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  Calculated Deadline: {editedTimeline.managerFinalReviewDeadline ? format(new Date(editedTimeline.managerFinalReviewDeadline), 'MMM dd, yyyy') : 'Will be calculated'}
+                </Typography>
               </Grid>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  type="date"
-                  label="HRBP Decision Deadline"
-                  value={editedTimeline.hrbpFinalDecisionDeadline}
+                  type="number"
+                  label="HRBP Decision Buffer Duration (days)"
+                  value={editedTimeline.hrbpDecisionBufferDuration}
                   onChange={(e) =>
                     setEditedTimeline({
                       ...editedTimeline,
-                      hrbpFinalDecisionDeadline: e.target.value,
+                      hrbpDecisionBufferDuration: parseInt(e.target.value) || 5,
                     })
                   }
-                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: 3, max: 7 }}
+                  helperText="Days after manager review completion (3-7 days)"
                 />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  Calculated Deadline: {editedTimeline.hrbpFinalDecisionDeadline ? format(new Date(editedTimeline.hrbpFinalDecisionDeadline), 'MMM dd, yyyy') : 'Will be calculated'}
+                </Typography>
               </Grid>
             </Grid>
           </ModernCard>

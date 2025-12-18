@@ -236,7 +236,22 @@ export default function PIPDetailPage() {
         {activeTab === 2 && (
           <Box sx={{ p: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">Check-ins</Typography>
+              <Box>
+                <Typography variant="h6">Check-ins</Typography>
+                {pip.status === 'active' && (
+                  <Typography variant="caption" color="text.secondary">
+                    Minimum check-ins required: 3 | Current: {pip.checkIns.length}
+                    {pip.checkIns.length < 3 && (
+                      <Chip 
+                        label="Insufficient" 
+                        color="warning" 
+                        size="small" 
+                        sx={{ ml: 1 }}
+                      />
+                    )}
+                  </Typography>
+                )}
+              </Box>
               {pip.status === 'active' && (
                 <Button
                   startIcon={<NoteAdd />}
@@ -251,6 +266,12 @@ export default function PIPDetailPage() {
                 </Button>
               )}
             </Box>
+            {pip.status === 'active_pending_validation' && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Active period has ended but minimum check-in requirements are not met. 
+                Please add more check-ins or request HRBP override.
+              </Alert>
+            )}
             {pip.checkIns.length === 0 ? (
               <Typography color="text.secondary">No check-ins yet</Typography>
             ) : (
@@ -264,6 +285,23 @@ export default function PIPDetailPage() {
                   </ListItem>
                 ))}
               </List>
+            )}
+            {pip.status === 'active' && pip.activePeriodEndedAt && (
+              <Box sx={{ mt: 3 }}>
+                <Button
+                  variant="contained"
+                  onClick={async () => {
+                    try {
+                      await pipService.completeActivePeriod(pip.id, false);
+                      await loadPIP();
+                    } catch (error: any) {
+                      console.error('Failed to complete active period:', error);
+                    }
+                  }}
+                >
+                  Complete Active Period
+                </Button>
+              </Box>
             )}
           </Box>
         )}
@@ -348,60 +386,158 @@ export default function PIPDetailPage() {
         <ModernCard
           sx={{
             mb: 3,
-            background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
-            border: '2px solid #0ea5e9',
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            border: '2px solid #f59e0b',
           }}
         >
           <Typography variant="h6" gutterBottom>
-            HRBP Review Required
+            ⚠️ HRBP Initial Review Required
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Review the PIP and choose an action:
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Review the PIP and approve to proceed. Deadlines will be recalculated based on your approval time.
           </Typography>
-          <Box display="flex" gap={2} flexWrap="wrap">
+          <Box display="flex" gap={2}>
             <Button
               variant="contained"
               size="large"
+              onClick={async () => {
+                try {
+                  await pipService.approvePIPByHrbp(pip.id);
+                  await loadPIP();
+                } catch (error: any) {
+                  console.error('Failed to approve PIP:', error);
+                }
+              }}
               sx={{
                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                flex: 1,
-                minWidth: 150,
-              }}
-              onClick={() => {
-                setFormData({ action: 'approve', comments: '' });
-                setDialogType('hrbp-review');
-                setDialogOpen(true);
               }}
             >
-              Approve
-            </Button>
-            <Button
-              variant="contained"
-              size="large"
-              sx={{
-                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-                flex: 1,
-                minWidth: 150,
-              }}
-              onClick={() => {
-                setFormData({ action: 'deny', comments: '' });
-                setDialogType('hrbp-review');
-                setDialogOpen(true);
-              }}
-            >
-              Deny
+              Approve PIP
             </Button>
             <Button
               variant="outlined"
               size="large"
-              sx={{ flex: 1, minWidth: 150 }}
               onClick={() => {
                 setFormData({ action: 'send_back', comments: '' });
                 setDialogType('hrbp-review');
                 setDialogOpen(true);
               }}
             >
-              Send Back
+              Request Changes
+            </Button>
+          </Box>
+        </ModernCard>
+      )}
+
+      {user?.role === 'hrbp' && (pip.status === 'overdue_employee_acknowledgement' || pip.status === 'pending_employee_acknowledgement') && (
+        <ModernCard
+          sx={{
+            mb: 3,
+            background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+            border: '2px solid #ef4444',
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            ⚠️ Employee Acknowledgement Overdue
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Employee has not acknowledged the PIP. You can mark it as "Deemed Acknowledged" to proceed.
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            color="error"
+            onClick={async () => {
+              try {
+                await pipService.deemAcknowledged(pip.id, 'Deemed acknowledged by HRBP due to missed deadline');
+                await loadPIP();
+              } catch (error: any) {
+                console.error('Failed to deem acknowledged:', error);
+              }
+            }}
+          >
+            Deem Acknowledged
+          </Button>
+        </ModernCard>
+      )}
+
+      {user?.role === 'hrbp' && pip.status === 'overdue_manager_review' && (
+        <ModernCard
+          sx={{
+            mb: 3,
+            background: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+            border: '2px solid #ef4444',
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            ⚠️ Manager Review Overdue
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Manager has not completed the review. You can take over the review.
+          </Typography>
+          <Button
+            variant="contained"
+            size="large"
+            color="error"
+            onClick={async () => {
+              try {
+                await pipService.hrbpOverrideReview(pip.id, 'HRBP taking over due to manager delay');
+                await loadPIP();
+              } catch (error: any) {
+                console.error('Failed to override review:', error);
+              }
+            }}
+          >
+            Take Over Review
+          </Button>
+        </ModernCard>
+      )}
+
+      {user?.role === 'hrbp' && pip.status === 'pending_hrbp_review' && (
+        <ModernCard
+          sx={{
+            mb: 3,
+            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
+            border: '2px solid #f59e0b',
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            ⚠️ HRBP Initial Review Required
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Review the PIP and approve to proceed. Deadlines will be recalculated based on your approval time.
+          </Typography>
+          <Box display="flex" gap={2} flexWrap="wrap">
+            <Button
+              variant="contained"
+              size="large"
+              onClick={async () => {
+                try {
+                  await pipService.approvePIPByHrbp(pip.id);
+                  await loadPIP();
+                } catch (error: any) {
+                  console.error('Failed to approve PIP:', error);
+                }
+              }}
+              sx={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                flex: 1,
+                minWidth: 150,
+              }}
+            >
+              Approve PIP
+            </Button>
+            <Button
+              variant="outlined"
+              size="large"
+              onClick={() => {
+                setFormData({ action: 'send_back', comments: '' });
+                setDialogType('hrbp-review');
+                setDialogOpen(true);
+              }}
+              sx={{ flex: 1, minWidth: 150 }}
+            >
+              Request Changes
             </Button>
           </Box>
         </ModernCard>

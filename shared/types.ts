@@ -32,26 +32,38 @@ export interface Goal {
 }
 
 export interface PIPTimeline {
-  employeeAcknowledgementDeadline: string;
-  pipActiveDuration: number; // days
-  employeeSelfReviewDeadline: string;
-  managerFinalReviewDeadline: string;
-  hrbpFinalDecisionDeadline: string;
-  gracePeriod?: number; // days
+  // Durations (in days) - what managers set
+  employeeAcknowledgementDuration?: number; // days from HRBP approval
+  pipActiveDuration: number; // days from acknowledgement
+  selfReviewBufferDuration?: number; // days after active period ends
+  managerReviewBufferDuration?: number; // days after self-review
+  hrbpDecisionBufferDuration?: number; // days after manager review
+  gracePeriod?: number; // days - grace period for late submissions
+  
+  // Legacy fields (deprecated - kept for backward compatibility)
+  employeeAcknowledgementDeadline?: string; // DEPRECATED - calculated dynamically
+  employeeSelfReviewDeadline?: string; // DEPRECATED - calculated dynamically
+  managerFinalReviewDeadline?: string; // DEPRECATED - calculated dynamically
+  hrbpFinalDecisionDeadline?: string; // DEPRECATED - calculated dynamically
 }
 
 export type PIPStatus = 
   | 'draft'
   | 'pending_hrbp_review'
   | 'pending_employee_acknowledgement'
+  | 'overdue_employee_acknowledgement' // New: Employee missed acknowledgement deadline
   | 'active'
+  | 'active_pending_validation' // New: Active period ended but validation pending
   | 'pending_employee_self_review'
   | 'pending_manager_review'
+  | 'overdue_manager_review' // New: Manager missed review deadline
   | 'pending_hrbp_decision'
+  | 'overdue_hrbp_decision' // New: HRBP missed decision deadline
+  | 'admin_intervention_required' // New: Escalated to admin
   | 'completed'
   | 'overdue'
-  | 'denied'
-  | 'closed';
+  | 'cancelled'
+  | 'deemed_acknowledged'; // New: HRBP marked as acknowledged after employee missed deadline
 
 export type StepStatus = 'pending' | 'due_soon' | 'overdue' | 'completed';
 
@@ -103,6 +115,18 @@ export interface PIP {
   updatedAt: string;
   locked: boolean;
   version: number;
+  
+  // Actual timestamps for deadline calculation
+  hrbpApprovedAt?: string; // When HRBP approved initial review
+  employeeAcknowledgedAt?: string; // When employee acknowledged
+  activePeriodStartedAt?: string; // When active period actually started
+  activePeriodEndedAt?: string; // When active period ended
+  selfReviewSubmittedAt?: string; // When employee submitted self-review
+  managerReviewCompletedAt?: string; // When manager completed review
+  
+  // Extension tracking
+  extensionCount?: number; // Number of times PIP has been extended
+  originalActiveDuration?: number; // Original duration before extensions
 }
 
 export interface PIPTemplate {

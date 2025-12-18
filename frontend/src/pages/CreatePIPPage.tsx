@@ -34,13 +34,21 @@ export default function CreatePIPPage() {
     supportingDocuments: [] as string[],
     goals: [] as Omit<Goal, 'id'>[],
     timeline: {
+      // Use durations instead of absolute dates
+      employeeAcknowledgementDuration: 5, // days from HRBP approval (default)
+      pipActiveDuration: 50, // days from acknowledgement (default)
+      selfReviewBufferDuration: 3, // days after active period ends (default)
+      managerReviewBufferDuration: 5, // days after self-review (default)
+      hrbpDecisionBufferDuration: 5, // days after manager review (default)
+      // Legacy fields kept for backward compatibility but not used
       employeeAcknowledgementDeadline: '',
-      pipActiveDuration: 30,
       employeeSelfReviewDeadline: '',
       managerFinalReviewDeadline: '',
       hrbpFinalDecisionDeadline: '',
     },
   });
+
+  const [deadlinePolicy, setDeadlinePolicy] = useState<any>(null);
 
   useEffect(() => {
     loadUsers();
@@ -349,26 +357,40 @@ export default function CreatePIPPage() {
         {/* Step 3: Timeline Setup */}
         <ModernCard
           title="Step 3: Timeline Setup"
-          subtitle="Set duration and deadlines for each step"
+          subtitle="Set durations for each step (deadlines are calculated automatically)"
           sx={{ mb: 3 }}
         >
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Deadlines are calculated automatically based on completion times. You only need to set durations.
+          </Alert>
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                type="date"
-                label="Employee Acknowledgement Deadline"
-                value={formData.timeline.employeeAcknowledgementDeadline}
-                onChange={(e) =>
+                type="number"
+                label="Employee Acknowledgement Duration (days)"
+                value={formData.timeline.employeeAcknowledgementDuration}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0;
+                  const min = deadlinePolicy?.employeeAckMinDays || 3;
+                  const max = deadlinePolicy?.employeeAckMaxDays || 7;
+                  if (value < min || value > max) {
+                    setError(`Duration must be between ${min} and ${max} days`);
+                    return;
+                  }
                   setFormData({
                     ...formData,
                     timeline: {
                       ...formData.timeline,
-                      employeeAcknowledgementDeadline: e.target.value,
+                      employeeAcknowledgementDuration: value,
                     },
-                  })
-                }
-                InputLabelProps={{ shrink: true }}
+                  });
+                }}
+                inputProps={{ 
+                  min: deadlinePolicy?.employeeAckMinDays || 3, 
+                  max: deadlinePolicy?.employeeAckMaxDays || 7 
+                }}
+                helperText={`Days from HRBP approval (${deadlinePolicy?.employeeAckMinDays || 3}-${deadlinePolicy?.employeeAckMaxDays || 7} days)`}
                 required
               />
             </Grid>
@@ -380,12 +402,10 @@ export default function CreatePIPPage() {
                 value={formData.timeline.pipActiveDuration}
                 onChange={(e) => {
                   const value = parseInt(e.target.value) || 0;
-                  if (value < 0) {
-                    setError('Duration cannot be negative');
-                    return;
-                  }
-                  if (value > 365) {
-                    setError('Duration cannot exceed 365 days');
+                  const min = deadlinePolicy?.activeDurationMinDays || 30;
+                  const max = deadlinePolicy?.activeDurationMaxDays || 90;
+                  if (value < min || value > max) {
+                    setError(`Duration must be between ${min} and ${max} days`);
                     return;
                   }
                   setFormData({
@@ -396,8 +416,11 @@ export default function CreatePIPPage() {
                     },
                   });
                 }}
-                inputProps={{ min: 1, max: 365 }}
-                helperText="Select 30, 60, or 90 days, or enter custom duration (max 365 days)"
+                inputProps={{ 
+                  min: deadlinePolicy?.activeDurationMinDays || 30, 
+                  max: deadlinePolicy?.activeDurationMaxDays || 90 
+                }}
+                helperText={`Days from employee acknowledgement (${deadlinePolicy?.activeDurationMinDays || 30}-${deadlinePolicy?.activeDurationMaxDays || 90} days)`}
                 required
               />
             </Grid>
@@ -405,7 +428,7 @@ export default function CreatePIPPage() {
               <TextField
                 fullWidth
                 select
-                label="Quick Select Duration"
+                label="Quick Select Active Duration"
                 value=""
                 onChange={(e) => {
                   const days = parseInt(e.target.value);
@@ -421,66 +444,115 @@ export default function CreatePIPPage() {
                 }}
               >
                 <MenuItem value="30">30 days</MenuItem>
+                <MenuItem value="45">45 days</MenuItem>
+                <MenuItem value="50">50 days</MenuItem>
                 <MenuItem value="60">60 days</MenuItem>
                 <MenuItem value="90">90 days</MenuItem>
               </TextField>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                type="date"
-                label="Employee Self-Review Deadline"
-                value={formData.timeline.employeeSelfReviewDeadline}
-                onChange={(e) =>
+                type="number"
+                label="Self-Review Buffer Duration (days)"
+                value={formData.timeline.selfReviewBufferDuration}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0;
+                  const min = deadlinePolicy?.selfReviewBufferMinDays || 1;
+                  const max = deadlinePolicy?.selfReviewBufferMaxDays || 5;
+                  if (value < min || value > max) {
+                    setError(`Buffer must be between ${min} and ${max} days`);
+                    return;
+                  }
                   setFormData({
                     ...formData,
                     timeline: {
                       ...formData.timeline,
-                      employeeSelfReviewDeadline: e.target.value,
+                      selfReviewBufferDuration: value,
                     },
-                  })
-                }
-                InputLabelProps={{ shrink: true }}
+                  });
+                }}
+                inputProps={{ 
+                  min: deadlinePolicy?.selfReviewBufferMinDays || 1, 
+                  max: deadlinePolicy?.selfReviewBufferMaxDays || 5 
+                }}
+                helperText={`Days after active period ends (${deadlinePolicy?.selfReviewBufferMinDays || 1}-${deadlinePolicy?.selfReviewBufferMaxDays || 5} days)`}
                 required
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                type="date"
-                label="Manager Review Deadline"
-                value={formData.timeline.managerFinalReviewDeadline}
-                onChange={(e) =>
+                type="number"
+                label="Manager Review Buffer Duration (days)"
+                value={formData.timeline.managerReviewBufferDuration}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0;
+                  const min = deadlinePolicy?.managerReviewBufferMinDays || 3;
+                  const max = deadlinePolicy?.managerReviewBufferMaxDays || 7;
+                  if (value < min || value > max) {
+                    setError(`Buffer must be between ${min} and ${max} days`);
+                    return;
+                  }
                   setFormData({
                     ...formData,
                     timeline: {
                       ...formData.timeline,
-                      managerFinalReviewDeadline: e.target.value,
+                      managerReviewBufferDuration: value,
                     },
-                  })
-                }
-                InputLabelProps={{ shrink: true }}
+                  });
+                }}
+                inputProps={{ 
+                  min: deadlinePolicy?.managerReviewBufferMinDays || 3, 
+                  max: deadlinePolicy?.managerReviewBufferMaxDays || 7 
+                }}
+                helperText={`Days after self-review submission (${deadlinePolicy?.managerReviewBufferMinDays || 3}-${deadlinePolicy?.managerReviewBufferMaxDays || 7} days)`}
                 required
               />
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                type="date"
-                label="HRBP Decision Deadline"
-                value={formData.timeline.hrbpFinalDecisionDeadline}
-                onChange={(e) =>
+                type="number"
+                label="HRBP Decision Buffer Duration (days)"
+                value={formData.timeline.hrbpDecisionBufferDuration}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value) || 0;
+                  const min = deadlinePolicy?.hrbpDecisionBufferMinDays || 3;
+                  const max = deadlinePolicy?.hrbpDecisionBufferMaxDays || 7;
+                  if (value < min || value > max) {
+                    setError(`Buffer must be between ${min} and ${max} days`);
+                    return;
+                  }
                   setFormData({
                     ...formData,
                     timeline: {
                       ...formData.timeline,
-                      hrbpFinalDecisionDeadline: e.target.value,
+                      hrbpDecisionBufferDuration: value,
                     },
-                  })
-                }
-                InputLabelProps={{ shrink: true }}
+                  });
+                }}
+                inputProps={{ 
+                  min: deadlinePolicy?.hrbpDecisionBufferMinDays || 3, 
+                  max: deadlinePolicy?.hrbpDecisionBufferMaxDays || 7 
+                }}
+                helperText={`Days after manager review completion (${deadlinePolicy?.hrbpDecisionBufferMinDays || 3}-${deadlinePolicy?.hrbpDecisionBufferMaxDays || 7} days)`}
                 required
               />
+            </Grid>
+            <Grid item xs={12}>
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                <Typography variant="body2" fontWeight="bold" gutterBottom>
+                  Note: All deadlines are calculated automatically based on:
+                </Typography>
+                <Typography variant="body2" component="ul" sx={{ pl: 2, mt: 1, mb: 0 }}>
+                  <li>Employee acknowledgement deadline = HRBP approval time + acknowledgement duration</li>
+                  <li>Active period end = Acknowledgement time + active duration</li>
+                  <li>Self-review deadline = Active period end + buffer</li>
+                  <li>Manager review deadline = Self-review submission + buffer</li>
+                  <li>HRBP decision deadline = Manager review completion + buffer</li>
+                </Typography>
+              </Alert>
             </Grid>
           </Grid>
         </ModernCard>

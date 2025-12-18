@@ -71,5 +71,36 @@ export const pipService = {
     const response = await api.post<{ pip: PIP }>(`/pips/${pipId}/timeline-override`, { step, newDueDate, reason });
     return response.data.pip;
   },
+
+  // New deadline-related endpoints
+  async approvePIPByHrbp(pipId: string): Promise<PIP> {
+    const response = await api.post<{ pip: PIP }>(`/pips/${pipId}/hrbp-approve`);
+    return response.data.pip;
+  },
+
+  async deemAcknowledged(pipId: string, comments?: string): Promise<PIP> {
+    const response = await api.post<{ pip: PIP }>(`/pips/${pipId}/deem-acknowledged`, { comments });
+    return response.data.pip;
+  },
+
+  async completeActivePeriod(pipId: string, forceComplete?: boolean): Promise<PIP> {
+    const response = await api.post<{ pip: PIP }>(`/pips/${pipId}/complete-active`, { forceComplete });
+    return response.data.pip;
+  },
+
+  async requestExtension(pipId: string, newDuration: number, justification: string): Promise<PIP> {
+    const response = await api.post<{ pip: PIP }>(`/pips/${pipId}/extend`, { newDuration, justification });
+    return response.data.pip;
+  },
+
+  async hrbpOverrideReview(pipId: string, comments?: string): Promise<PIP> {
+    const response = await api.post<{ pip: PIP }>(`/pips/${pipId}/hrbp-override-review`, { comments });
+    return response.data.pip;
+  },
+
+  async getDeadlinePolicy(): Promise<any> {
+    const response = await api.get('/pips/deadline-policy');
+    return response.data;
+  },
 };
 
