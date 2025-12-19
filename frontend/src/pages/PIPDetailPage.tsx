@@ -33,6 +33,8 @@ import {
   Download,
   NoteAdd,
   PictureAsPdf,
+  Assessment,
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import { pipService } from '../services/pipService';
 import { PIP, Goal } from '../types';
@@ -222,6 +224,45 @@ export default function PIPDetailPage() {
         </Box>
       </Box>
 
+      {/* Appraisal Reference Banner - Show if manager referenced an appraisal (optional read-only metadata) */}
+      {pip.appraisalCycleId && (
+        <Alert 
+          severity="info" 
+          icon={<Assessment />}
+          sx={{ mb: 3 }}
+        >
+          <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Appraisal Reference
+              </Typography>
+              <Typography variant="body2">
+                This PIP references an appraisal cycle for context.
+                {pip.appraisalCycleId && (
+                  <>
+                    {' '}Appraisal Cycle: <strong>{pip.appraisalCycleId}</strong>
+                  </>
+                )}
+              </Typography>
+            </Box>
+            {pip.appraisalCycleId && pip.appraisalParticipantId && (
+              <Button
+                size="small"
+                startIcon={<LinkIcon />}
+                onClick={() => {
+                  // TODO: Navigate to appraisal detail page when created
+                  // navigate(`/appraisals/${pip.appraisalCycleId}/participants/${pip.appraisalParticipantId}`);
+                  console.log('Navigate to appraisal:', pip.appraisalCycleId, pip.appraisalParticipantId);
+                }}
+                sx={{ ml: 2 }}
+              >
+                View Appraisal
+              </Button>
+            )}
+          </Box>
+        </Alert>
+      )}
+
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2}>
           <Grid item xs={12} md={6}>
@@ -232,6 +273,19 @@ export default function PIPDetailPage() {
             <Typography variant="body2" color="text.secondary">Created</Typography>
             <Typography>{format(new Date(pip.createdAt), 'MMM dd, yyyy')}</Typography>
           </Grid>
+          {pip.appraisalCycleId && (
+            <Grid item xs={12}>
+              <Box sx={{ p: 2, bgcolor: 'info.light', borderRadius: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  <strong>Appraisal Reference (Optional):</strong>
+                </Typography>
+                <Typography variant="body2">
+                  Manager referenced appraisal cycle: {pip.appraisalCycleId}
+                  {pip.appraisalParticipantId && ` (Participant: ${pip.appraisalParticipantId})`}
+                </Typography>
+              </Box>
+            </Grid>
+          )}
           <Grid item xs={12}>
             <Typography variant="body2" color="text.secondary">Reason</Typography>
             <Typography>{pip.reason}</Typography>

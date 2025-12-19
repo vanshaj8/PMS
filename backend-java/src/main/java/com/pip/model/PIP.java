@@ -94,6 +94,15 @@ public class PIP {
     @Column(name = "original_active_duration")
     private Integer originalActiveDuration; // Original duration before extensions
 
+    // Optional appraisal reference fields (READ-ONLY metadata only)
+    // Manager may optionally reference an appraisal when creating a PIP manually
+    // These fields are for context/reference only and do NOT create any dependencies
+    @Column(name = "appraisal_participant_id", columnDefinition = "CHAR(36)")
+    private String appraisalParticipantId; // OPTIONAL: Manager's manual reference to appraisal participant
+
+    @Column(name = "appraisal_cycle_id", columnDefinition = "CHAR(36)")
+    private String appraisalCycleId; // OPTIONAL: Manager's manual reference to appraisal cycle
+
     // Metadata for compliance and auditing
     @Column(name = "ack_escalation_metadata", columnDefinition = "TEXT")
     private String ackEscalationMetadata; // JSON: escalation tracking for acknowledgement

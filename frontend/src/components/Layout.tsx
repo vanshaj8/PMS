@@ -21,6 +21,7 @@ import {
   Add,
   AdminPanelSettings,
   Logout,
+  Assessment,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
@@ -37,8 +38,14 @@ export default function Layout() {
 
   const menuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/' },
-    { text: 'PIPs', icon: <Assignment />, path: '/pips' },
   ];
+
+  // For admins, show Appraisal before PIP
+  if (user?.role === 'admin') {
+    menuItems.push({ text: 'Appraisals', icon: <Assessment />, path: '/appraisals' });
+  }
+
+  menuItems.push({ text: 'PIPs', icon: <Assignment />, path: '/pips' });
 
   if (user?.role === 'manager') {
     menuItems.push({ text: 'Create PIP', icon: <Add />, path: '/pips/create' });

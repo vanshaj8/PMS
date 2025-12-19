@@ -113,6 +113,12 @@ export interface PIP {
   // Extension tracking
   extensionCount?: number; // Number of times PIP has been extended
   originalActiveDuration?: number; // Original duration before extensions
+  
+  // Optional appraisal reference fields (READ-ONLY metadata only)
+  // Manager may optionally reference an appraisal when creating a PIP manually
+  // These fields are for context/reference only and do NOT create any dependencies
+  appraisalParticipantId?: string; // OPTIONAL: Manager's manual reference to appraisal participant
+  appraisalCycleId?: string; // OPTIONAL: Manager's manual reference to appraisal cycle
 }
 
 export interface DashboardStats {

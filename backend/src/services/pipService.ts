@@ -226,8 +226,8 @@ export class PIPService {
     const now = new Date();
     
     // TC19: Error if reduction makes end date < today (for completed steps)
-    const step = pip.steps[stepIndex];
-    if (step.completedDate && newDue < new Date(step.completedDate)) {
+    const stepData = pip.steps[stepIndex];
+    if (stepData.completedDate && newDue < new Date(stepData.completedDate)) {
       throw new Error('New due date cannot be before step completion date');
     }
 

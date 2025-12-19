@@ -117,7 +117,7 @@ public class PermissionService {
         ));
         
         // Employee - limited permissions
-        matrix.put(UserRole.EMPLOYEE, Set.of(
+        matrix.put(UserRole.EMPLOYEE, Map.of(
             WorkflowContext.PIP, Set.of("VIEW", "ACKNOWLEDGE", "SUBMIT_REVIEW"),
             WorkflowContext.APPRAISAL, Set.of("VIEW", "SUBMIT_REVIEW", "ACKNOWLEDGE")
         ));

@@ -13,6 +13,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import InvalidRecordsPage from './pages/InvalidRecordsPage';
 import UserGoalsPage from './pages/UserGoalsPage';
 import UserProfilePage from './pages/UserProfilePage';
+import AppraisalListPage from './pages/AppraisalListPage';
 import Layout from './components/Layout';
 import { CircularProgress, Box } from '@mui/material';
 import { ToastProvider } from './components/ToastContext';
@@ -47,6 +48,7 @@ function App() {
           }
         >
           <Route index element={<DashboardPage />} />
+          <Route path="appraisals" element={<AppraisalListPage />} />
           <Route path="pips" element={<PIPListPage />} />
           <Route path="pips/create" element={<CreatePIPPage />} />
           <Route path="pips/:id" element={<PIPDetailPage />} />

@@ -127,6 +127,12 @@ export interface PIP {
   // Extension tracking
   extensionCount?: number; // Number of times PIP has been extended
   originalActiveDuration?: number; // Original duration before extensions
+  
+  // Optional appraisal reference fields (READ-ONLY metadata only)
+  // Manager may optionally reference an appraisal when creating a PIP manually
+  // These fields are for context/reference only and do NOT create any dependencies
+  appraisalParticipantId?: string; // OPTIONAL: Manager's manual reference to appraisal participant
+  appraisalCycleId?: string; // OPTIONAL: Manager's manual reference to appraisal cycle
 }
 
 export interface PIPTemplate {
@@ -177,5 +183,130 @@ export interface DashboardStats {
   overduePIPs: number;
   successRate: number;
   averageDuration: number;
+}
+
+// =====================================================
+// Appraisal Types - Integrated with PIP
+// =====================================================
+
+export type AppraisalCycleStatus = 'DRAFT' | 'ACTIVE' | 'LOCKED' | 'COMPLETED' | 'CANCELLED';
+
+export type ParticipantStatus = 
+  | 'ELIGIBLE'
+  | 'IN_PROGRESS'
+  | 'GOALS_LOCKED'
+  | 'REVIEW_IN_PROGRESS'
+  | 'CALIBRATION_PENDING'
+  | 'CALIBRATED'
+  | 'OUTCOME_RELEASED'
+  | 'ACKNOWLEDGED'
+  | 'EXCLUDED';
+
+export type AppraisalGoalType = 
+  | 'BUSINESS_GOAL'
+  | 'BEHAVIORAL_GOAL'
+  | 'COMPETENCY_GOAL'
+  | 'OKR'
+  | 'DEVELOPMENT_GOAL';
+
+export type AppraisalGoalStatus = 
+  | 'ACTIVE'
+  | 'LOCKED'
+  | 'ACHIEVED'
+  | 'PARTIALLY_ACHIEVED'
+  | 'NOT_ACHIEVED';
+
+export interface AppraisalCycle {
+  id: string;
+  cycleName: string;
+  startDate: string;
+  endDate: string;
+  status: AppraisalCycleStatus;
+  description?: string;
+  eligibilityRules?: any; // JSON
+  reviewTypes?: any; // JSON
+  ratingScale?: any; // JSON
+  forcedDistributionEnabled?: boolean;
+  forcedDistributionRules?: any; // JSON
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  lockedAt?: string;
+}
+
+export interface AppraisalParticipant {
+  id: string;
+  cycleId: string;
+  employeeId: string;
+  managerId: string;
+  skipLevelManagerId?: string;
+  hrbpId?: string;
+  status: ParticipantStatus;
+  eligibilityReason?: string;
+  goalsLocked?: boolean;
+  goalsLockedAt?: string;
+  selfReviewSubmitted?: boolean;
+  selfReviewSubmittedAt?: string;
+  managerReviewSubmitted?: boolean;
+  managerReviewSubmittedAt?: string;
+  skipReviewSubmitted?: boolean;
+  skipReviewSubmittedAt?: string;
+  calibrated?: boolean;
+  calibratedAt?: string;
+  finalOutcomeReleased?: boolean;
+  finalOutcomeReleasedAt?: string;
+  employeeAcknowledged?: boolean;
+  employeeAcknowledgedAt?: string;
+  employeeAcknowledgementComments?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppraisalGoal {
+  id: string;
+  participantId: string;
+  goalType: AppraisalGoalType;
+  title: string;
+  description?: string;
+  weightage: number;
+  successCriteria?: string;
+  status: AppraisalGoalStatus;
+  source?: any; // JSON
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AppraisalOutcome {
+  id: string;
+  participantId: string;
+  finalRating: number;
+  finalRatingLabel?: string;
+  promotionRecommendation?: boolean;
+  bonusPercentage?: number;
+  hikePercentage?: number;
+  developmentPlan?: string;
+  pipTriggered: boolean;
+  pipId?: string; // Reference to PIP if one was created
+  summary?: string;
+  approvedBy: string;
+  approvedAt: string;
+  releasedToEmployee?: boolean;
+  releasedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// =====================================================
+// Helper Types for Optional Reference (Read-Only Metadata)
+// =====================================================
+// Note: These types are for display purposes only when showing
+// optional appraisal references in PIP context. They do NOT
+// imply integration or dependencies between modules.
+
+export interface PIPWithOptionalAppraisalReference extends PIP {
+  // Optional read-only reference data (if manager included appraisal reference)
+  appraisalParticipant?: AppraisalParticipant;
+  appraisalCycle?: AppraisalCycle;
+  // Note: These are for display context only, not dependencies
 }
 

@@ -640,9 +640,6 @@ function ReportingTab({
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [assignType, setAssignType] = useState<'manager' | 'hrbp' | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [assignType, setAssignType] = useState<'manager' | 'hrbp' | null>(null);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
 
   const handleAssign = async () => {
     if (!user.id || !selectedUserId || !assignType) return;

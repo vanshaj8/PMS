@@ -46,9 +46,9 @@ public class SharedGoal extends BaseEntity {
     @Column(name = "achieved_date")
     private java.time.LocalDate achievedDate;
 
-    // Versioning for audit
-    @Column(name = "version", nullable = false)
-    private Integer version = 1;
+    // Versioning for audit (version number, not the JPA @Version)
+    @Column(name = "version_number", nullable = false)
+    private Integer versionNumber = 1;
 
     @Column(name = "parent_goal_id", columnDefinition = "CHAR(36)")
     private String parentGoalId; // For goal updates/versions
