@@ -1,0 +1,240 @@
+{
+  "pipId": "33e58684-15a1-4d51-be4c-9dff32dbb517",
+  "startTime": "2025-12-18T19:50:59.091Z",
+  "steps": [
+    {
+      "step": 1,
+      "name": "User Authentication",
+      "timestamp": "2025-12-18T19:51:05.497Z",
+      "details": {
+        "manager": "manager@pip.com",
+        "employee": "employee@pip.com",
+        "hrbp": "hrbp@pip.com"
+      },
+      "result": "All users authenticated successfully"
+    },
+    {
+      "step": 2,
+      "name": "User ID Retrieval",
+      "timestamp": "2025-12-18T19:51:05.517Z",
+      "details": {
+        "employeeId": "550e8400-e29b-41d4-a716-446655440003",
+        "employeeEmail": "employee@pip.com",
+        "hrbpId": "550e8400-e29b-41d4-a716-446655440004",
+        "hrbpEmail": "hrbp@pip.com"
+      },
+      "result": "User IDs retrieved successfully"
+    },
+    {
+      "step": 3,
+      "name": "PIP Creation",
+      "timestamp": "2025-12-18T19:51:05.589Z",
+      "details": {
+        "pipId": "33e58684-15a1-4d51-be4c-9dff32dbb517",
+        "employeeId": "550e8400-e29b-41d4-a716-446655440003",
+        "hrbpId": "550e8400-e29b-41d4-a716-446655440004",
+        "reason": "Performance improvement needed in code quality and communication skills. Employee has shown decline in code review participation and response times to team communications.",
+        "goalsCount": 2,
+        "goals": [
+          {
+            "id": "d11d9b85-bf81-4edd-a3c4-d8227c444ad1",
+            "title": "Improve Code Quality",
+            "weightage": 50
+          },
+          {
+            "id": "9038f727-267b-47ca-bcb6-56785910a5ce",
+            "title": "Enhance Communication",
+            "weightage": 50
+          }
+        ],
+        "timeline": {
+          "employeeAcknowledgementDuration": 5,
+          "pipActiveDuration": 50,
+          "selfReviewBufferDuration": 3,
+          "managerReviewBufferDuration": 5,
+          "hrbpDecisionBufferDuration": 5
+        },
+        "status": "PENDING_HRBP_REVIEW"
+      },
+      "result": "PIP created successfully"
+    },
+    {
+      "step": 4,
+      "name": "HRBP Approval",
+      "timestamp": "2025-12-18T19:51:07.626Z",
+      "details": {
+        "status": "PENDING_EMPLOYEE_ACKNOWLEDGEMENT",
+        "hrbpApprovedAt": "2025-12-19T01:21:07.605276",
+        "employeeAckDeadline": "2025-12-26"
+      },
+      "result": "PIP approved by HRBP, deadlines recalculated"
+    },
+    {
+      "step": 5,
+      "name": "Employee Acknowledgement",
+      "timestamp": "2025-12-18T19:51:09.645Z",
+      "details": {
+        "status": "ACTIVE",
+        "acknowledgedAt": "2025-12-19T01:21:09.638981",
+        "activePeriodStartedAt": "2025-12-19T01:21:09.638981",
+        "activePeriodEndDeadline": "2026-02-07T01:21:09.638981",
+        "comments": "Employee acknowledged and committed to improvement"
+      },
+      "result": "PIP acknowledged, active period started"
+    },
+    {
+      "step": 6,
+      "name": "Check-ins Added",
+      "timestamp": "2025-12-18T19:51:12.699Z",
+      "details": {
+        "checkInsCount": 3,
+        "checkIns": [
+          {
+            "id": "391475f7-dee5-4a90-9565-61e509050f37",
+            "date": "2025-12-25",
+            "notes": "Check-in #1: Employee showing good progress. Code quality improvements visible with increased partic..."
+          },
+          {
+            "id": "1bcfc771-21e9-4e17-8449-23a452ebf6c1",
+            "date": "2026-01-01",
+            "notes": "Check-in #2: Employee showing good progress. Code quality improvements visible with increased partic..."
+          },
+          {
+            "id": "3948b792-acd8-4fc5-be10-8f420bb41243",
+            "date": "2026-01-08",
+            "notes": "Check-in #3: Employee showing good progress. Code quality improvements visible with increased partic..."
+          }
+        ]
+      },
+      "result": "Three check-ins added during active period"
+    },
+    {
+      "step": 7,
+      "name": "Active Period Completion",
+      "timestamp": "2025-12-18T19:51:14.722Z",
+      "details": {
+        "status": "PENDING_EMPLOYEE_SELF_REVIEW",
+        "activePeriodEndedAt": "2025-12-19T01:21:14.71195",
+        "selfReviewDeadline": "2025-12-24T01:21:14.71195",
+        "checkInsValidated": true
+      },
+      "result": "Active period completed, self-review deadline set"
+    },
+    {
+      "step": 8,
+      "name": "Employee Self-Review",
+      "timestamp": "2025-12-18T19:51:16.770Z",
+      "details": {
+        "status": "PENDING_MANAGER_REVIEW",
+        "submittedAt": "2025-12-19T01:21:16.760462",
+        "managerReviewDeadline": "2025-12-26T01:21:16.760462",
+        "goalsReviewed": 2
+      },
+      "result": "Employee submitted self-review for all goals"
+    },
+    {
+      "step": 9,
+      "name": "Manager Review",
+      "timestamp": "2025-12-18T19:51:18.816Z",
+      "details": {
+        "status": "PENDING_HRBP_DECISION",
+        "completedAt": "2025-12-19T01:21:18.807309",
+        "hrbpDecisionDeadline": "2025-12-26T01:21:18.807309",
+        "goalAssessments": [
+          {
+            "goalId": "9038f727-267b-47ca-bcb6-56785910a5ce",
+            "status": "partially_achieved"
+          },
+          {
+            "goalId": "d11d9b85-bf81-4edd-a3c4-d8227c444ad1",
+            "status": "achieved"
+          }
+        ]
+      },
+      "result": "Manager completed review, HRBP decision pending"
+    },
+    {
+      "step": 10,
+      "name": "HRBP Final Decision",
+      "timestamp": "2025-12-18T19:51:20.850Z",
+      "details": {
+        "status": "COMPLETED",
+        "finalOutcome": "SUCCESSFUL",
+        "finalRemarks": "After thorough review of the PIP, employee self-review, manager assessment, and all check-in notes, I have determined that the employee has successfully met the PIP requirements.\n\nKey Achievements:\n- ...",
+        "locked": true
+      },
+      "result": "HRBP made final decision: SUCCESSFUL"
+    }
+  ],
+  "finalStatus": "COMPLETED",
+  "timeline": {
+    "created": "2025-12-19T01:21:05.54181",
+    "hrbpApproved": "2025-12-19T01:21:08",
+    "employeeAcknowledged": "2025-12-19T01:21:10",
+    "activePeriodStarted": "2025-12-19T01:21:10",
+    "activePeriodEnded": "2025-12-19T01:21:15",
+    "selfReviewSubmitted": "2025-12-19T01:21:17",
+    "managerReviewCompleted": "2025-12-19T01:21:19",
+    "completed": "2025-12-18T19:51:20.850Z"
+  },
+  "endTime": "2025-12-18T19:51:20.859Z",
+  "duration": 21768,
+  "finalPIP": {
+    "id": "33e58684-15a1-4d51-be4c-9dff32dbb517",
+    "status": "COMPLETED",
+    "finalOutcome": "SUCCESSFUL",
+    "goals": [
+      {
+        "id": "9038f727-267b-47ca-bcb6-56785910a5ce",
+        "title": "Enhance Communication",
+        "status": "PARTIALLY_ACHIEVED",
+        "weightage": 50
+      },
+      {
+        "id": "d11d9b85-bf81-4edd-a3c4-d8227c444ad1",
+        "title": "Improve Code Quality",
+        "status": "ACHIEVED",
+        "weightage": 50
+      }
+    ],
+    "checkInsCount": 3,
+    "steps": [
+      {
+        "step": "EMPLOYEE_ACKNOWLEDGEMENT",
+        "status": "COMPLETED",
+        "dueDate": "2025-12-26",
+        "completedDate": "2025-12-19"
+      },
+      {
+        "step": "ACTIVE_PIP",
+        "status": "COMPLETED",
+        "dueDate": "2026-02-07",
+        "completedDate": "2025-12-19"
+      },
+      {
+        "step": "EMPLOYEE_SELF_REVIEW",
+        "status": "COMPLETED",
+        "dueDate": "2025-12-24",
+        "completedDate": "2025-12-19"
+      },
+      {
+        "step": "MANAGER_REVIEW",
+        "status": "COMPLETED",
+        "dueDate": "2025-12-26",
+        "completedDate": "2025-12-19"
+      },
+      {
+        "step": "HRBP_DECISION",
+        "status": "COMPLETED",
+        "dueDate": "2025-12-26",
+        "completedDate": "2025-12-19"
+      },
+      {
+        "step": "HRBP_REVIEW",
+        "status": "COMPLETED",
+        "dueDate": "2025-12-24",
+        "completedDate": "2025-12-19"
+      }
+    ]
+  }
+}
