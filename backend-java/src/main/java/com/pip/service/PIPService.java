@@ -8,11 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.pip.util.DateTimeUtil;
 
 @Service
 public class PIPService {
@@ -33,6 +35,12 @@ public class PIPService {
 
     @Autowired
     private BusinessDayService businessDayService;
+
+    @Autowired
+    private PIPMetadataService metadataService;
+
+    @Autowired
+    private SuccessCriteriaService successCriteriaService;
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -232,8 +240,17 @@ public class PIPService {
 
         LocalDateTime now = LocalDateTime.now();
         hrbpReviewStep.setStatus(StepStatus.COMPLETED);
-        hrbpReviewStep.setCompletedDate(now.format(DATE_FORMATTER));
+        // Store in UTC format with timezone
+        String completedDateUTC = com.pip.util.DateTimeUtil.formatUTC(com.pip.util.DateTimeUtil.toUTC(now));
+        hrbpReviewStep.setCompletedDate(completedDateUTC);
         hrbpReviewStep.setSignedBy(hrbpId);
+        
+        // Add timeline version
+        pip.setTimelineVersions(metadataService.addTimelineVersion(
+            pip.getTimelineVersions() != null ? pip.getTimelineVersions() : null,
+            "HRBP approval",
+            com.pip.util.DateTimeUtil.toUTC(now)
+        ));
 
         // Update PIP
         pip.setHrbpApprovedAt(now);
@@ -272,7 +289,9 @@ public class PIPService {
 
         LocalDateTime now = LocalDateTime.now();
         ackStep.setStatus(StepStatus.COMPLETED);
-        ackStep.setCompletedDate(now.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        // Store in UTC format with timezone
+        String completedDateUTC = com.pip.util.DateTimeUtil.formatUTC(com.pip.util.DateTimeUtil.toUTC(now));
+        ackStep.setCompletedDate(completedDateUTC);
         ackStep.setSignedBy(employeeId);
         if (comments != null) {
             ackStep.setComments(comments);
@@ -283,8 +302,18 @@ public class PIPService {
         pip.setActivePeriodStartedAt(now);
         pip.setStatus(PIPStatus.ACTIVE);
 
-        // Recalculate active period end and downstream deadlines
+        // Create escalation metadata
         DeadlinePolicy policy = deadlinePolicyService.getActivePolicy();
+        pip.setAckEscalationMetadata(metadataService.createAckEscalationMetadata(ackStep, policy));
+        
+        // Add timeline version
+        pip.setTimelineVersions(metadataService.addTimelineVersion(
+            pip.getTimelineVersions(), 
+            "Employee acknowledgement", 
+            com.pip.util.DateTimeUtil.toUTC(now)
+        ));
+
+        // Recalculate active period end and downstream deadlines
         deadlineCalculationService.recalculateDeadlines(pip, policy);
 
         pip.setVersion(pip.getVersion() + 1);
@@ -327,11 +356,23 @@ public class PIPService {
 
         LocalDateTime now = LocalDateTime.now();
         activeStep.setStatus(StepStatus.COMPLETED);
-        activeStep.setCompletedDate(now.format(DATE_FORMATTER));
+        // Store in UTC format
+        String completedDateUTC = com.pip.util.DateTimeUtil.formatUTC(com.pip.util.DateTimeUtil.toUTC(now));
+        activeStep.setCompletedDate(completedDateUTC);
         activeStep.setSignedBy(userId);
 
         pip.setActivePeriodEndedAt(now);
         pip.setStatus(PIPStatus.PENDING_EMPLOYEE_SELF_REVIEW);
+        
+        // Update check-in validation metadata
+        pip.setCheckInValidationMetadata(metadataService.createCheckInValidationMetadata(pip));
+        
+        // Add timeline version
+        pip.setTimelineVersions(metadataService.addTimelineVersion(
+            pip.getTimelineVersions(),
+            "Active period completed",
+            com.pip.util.DateTimeUtil.toUTC(now)
+        ));
 
         // Recalculate downstream deadlines
         deadlineCalculationService.recalculateDeadlines(pip, policy);
@@ -436,10 +477,21 @@ public class PIPService {
         }
         if (update.getSignedBy() != null) {
             step.setSignedBy(update.getSignedBy());
-            step.setCompletedDate(LocalDateTime.now().format(DATE_FORMATTER));
+            // Store in UTC format with timezone
+            LocalDateTime now = LocalDateTime.now();
+            String completedDateUTC = com.pip.util.DateTimeUtil.formatUTC(com.pip.util.DateTimeUtil.toUTC(now));
+            step.setCompletedDate(completedDateUTC);
             
             // Update PIP timestamps based on step completion
             updatePIPTimestamps(pip, step);
+            
+            // Add timeline version for step completion
+            String reason = "Step " + step.getStep().name() + " completed";
+            pip.setTimelineVersions(metadataService.addTimelineVersion(
+                pip.getTimelineVersions(),
+                reason,
+                com.pip.util.DateTimeUtil.toUTC(now)
+            ));
         }
 
         // Recalculate deadlines after step update
@@ -494,15 +546,40 @@ public class PIPService {
         PIP pip = pipRepository.findById(pipId)
                 .orElseThrow(() -> new RuntimeException("PIP not found"));
 
+        // Validate check-in is within active period window
+        if (pip.getActivePeriodStartedAt() != null) {
+            Instant activeStart = com.pip.util.DateTimeUtil.toUTC(pip.getActivePeriodStartedAt());
+            Instant checkInDate = com.pip.util.DateTimeUtil.parseUTC(request.getDate());
+            Instant activeEnd = pip.getActivePeriodEndedAt() != null ? 
+                com.pip.util.DateTimeUtil.toUTC(pip.getActivePeriodEndedAt()) : null;
+            
+            if (checkInDate.isBefore(activeStart)) {
+                throw new RuntimeException("Check-in date cannot be before active period start");
+            }
+            if (activeEnd != null && checkInDate.isAfter(activeEnd)) {
+                throw new RuntimeException("Check-in date cannot be after active period end");
+            }
+        }
+
         CheckIn checkIn = new CheckIn();
         checkIn.setPipId(pipId);
-        checkIn.setDate(request.getDate());
+        // Ensure date is in UTC format with timezone
+        String dateUTC = request.getDate();
+        if (!dateUTC.contains("T") && !dateUTC.endsWith("Z")) {
+            // If date-only, convert to UTC end of day
+            dateUTC = com.pip.util.DateTimeUtil.formatDeadlineUTC(com.pip.util.DateTimeUtil.parseUTC(request.getDate()));
+        }
+        checkIn.setDate(dateUTC);
         checkIn.setNotes(request.getNotes());
         checkIn.setAttachments(request.getAttachments());
         checkIn.setCreatedAt(LocalDateTime.now());
 
         CheckIn saved = checkInRepository.save(checkIn);
         pip.getCheckIns().add(saved);
+        
+        // Update check-in validation metadata
+        pip.setCheckInValidationMetadata(metadataService.createCheckInValidationMetadata(pip));
+        
         pipRepository.save(pip);
 
         return saved;

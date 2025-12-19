@@ -25,20 +25,39 @@ public class DeadlineCalculationService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
     
     /**
-     * Parse a date string that can be either DATE (YYYY-MM-DD) or DATETIME (YYYY-MM-DDTHH:mm:ss) format
+     * Parse a date string - handles UTC format (with Z) and converts to LocalDateTime
+     * Rule: Store everything in UTC, parse and convert for calculations
      */
     private LocalDateTime parseDateString(String dateStr) {
         if (dateStr == null || dateStr.isEmpty()) {
             return null;
         }
-        // Handle both DATE (YYYY-MM-DD) and DATETIME (YYYY-MM-DDTHH:mm:ss) formats
-        if (dateStr.length() == 10) {
-            // DATE format: YYYY-MM-DD
-            return LocalDate.parse(dateStr).atStartOfDay();
-        } else {
-            // DATETIME format: YYYY-MM-DDTHH:mm:ss
-            return LocalDateTime.parse(dateStr, DATE_FORMATTER);
+        
+        // Use DateTimeUtil for UTC parsing
+        try {
+            java.time.Instant instant = com.pip.util.DateTimeUtil.parseUTC(dateStr);
+            return com.pip.util.DateTimeUtil.fromUTC(instant);
+        } catch (Exception e) {
+            // Fallback to old parsing for backward compatibility
+            if (dateStr.length() == 10) {
+                return LocalDate.parse(dateStr).atStartOfDay();
+            } else {
+                return LocalDateTime.parse(dateStr, DATE_FORMATTER);
+            }
         }
+    }
+    
+    /**
+     * Format deadline in UTC (with Z suffix for end-of-day deadlines)
+     */
+    private String formatDeadlineUTC(LocalDateTime localDateTime) {
+        if (localDateTime == null) {
+            return null;
+        }
+        // Convert to UTC and format with Z suffix
+        java.time.Instant instant = com.pip.util.DateTimeUtil.toUTC(localDateTime);
+        // For deadlines, use end of day (23:59:59 UTC)
+        return com.pip.util.DateTimeUtil.formatDeadlineUTC(instant);
     }
     
     /**
@@ -132,7 +151,7 @@ public class DeadlineCalculationService {
         // Calculate HRBP review deadline (if not approved yet)
         if (hrbpReviewStep.isPresent() && hrbpReviewStep.get().getStatus() == StepStatus.PENDING) {
             LocalDateTime hrbpDeadline = calculateHrbpReviewDeadline(createdAt, policy);
-            hrbpReviewStep.get().setDueDate(hrbpDeadline.format(DATE_FORMATTER));
+            hrbpReviewStep.get().setDueDate(formatDeadlineUTC(hrbpDeadline));
         }
         
         // Calculate employee ack deadline (if HRBP approved)
@@ -141,7 +160,7 @@ public class DeadlineCalculationService {
             if (hrbpApprovedAt != null) {
                 LocalDateTime ackDeadline = calculateEmployeeAckDeadline(hrbpApprovedAt, policy);
                 if (ackStep.isPresent() && ackStep.get().getStatus() == StepStatus.PENDING) {
-                    ackStep.get().setDueDate(ackDeadline.format(DATE_FORMATTER));
+                    ackStep.get().setDueDate(formatDeadlineUTC(ackDeadline));
                 }
             }
         }
@@ -153,7 +172,7 @@ public class DeadlineCalculationService {
                 int activeDuration = pip.getTimeline().getPipActiveDuration();
                 LocalDateTime activeEnd = calculateActivePeriodEnd(acknowledgedAt, activeDuration, policy);
                 if (activeStep.isPresent() && activeStep.get().getStatus() == StepStatus.PENDING) {
-                    activeStep.get().setDueDate(activeEnd.format(DATE_FORMATTER));
+                    activeStep.get().setDueDate(formatDeadlineUTC(activeEnd));
                 }
             }
         }
@@ -164,7 +183,7 @@ public class DeadlineCalculationService {
             if (activeEnd != null) {
                 LocalDateTime selfReviewDeadline = calculateSelfReviewDeadline(activeEnd, policy);
                 if (selfReviewStep.isPresent() && selfReviewStep.get().getStatus() == StepStatus.PENDING) {
-                    selfReviewStep.get().setDueDate(selfReviewDeadline.format(DATE_FORMATTER));
+                    selfReviewStep.get().setDueDate(formatDeadlineUTC(selfReviewDeadline));
                 }
             }
         }
@@ -175,7 +194,7 @@ public class DeadlineCalculationService {
             if (selfReviewSubmittedAt != null) {
                 LocalDateTime managerDeadline = calculateManagerReviewDeadline(selfReviewSubmittedAt, policy);
                 if (managerReviewStep.isPresent() && managerReviewStep.get().getStatus() == StepStatus.PENDING) {
-                    managerReviewStep.get().setDueDate(managerDeadline.format(DATE_FORMATTER));
+                    managerReviewStep.get().setDueDate(formatDeadlineUTC(managerDeadline));
                 }
             }
         }
@@ -189,7 +208,7 @@ public class DeadlineCalculationService {
                     .findFirst();
                 if (hrbpDecisionStep.isPresent() && hrbpDecisionStep.get().getStatus() == StepStatus.PENDING) {
                     LocalDateTime hrbpDecisionDeadline = calculateHrbpDecisionDeadline(managerCompletedAt, policy);
-                    hrbpDecisionStep.get().setDueDate(hrbpDecisionDeadline.format(DATE_FORMATTER));
+                    hrbpDecisionStep.get().setDueDate(formatDeadlineUTC(hrbpDecisionDeadline));
                 }
             }
         }

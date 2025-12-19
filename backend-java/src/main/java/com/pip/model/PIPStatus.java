@@ -13,7 +13,8 @@ public enum PIPStatus {
     PENDING_HRBP_DECISION,
     OVERDUE_HRBP_DECISION, // New: HRBP missed decision deadline
     ADMIN_INTERVENTION_REQUIRED, // New: Escalated to admin
-    COMPLETED,
+    COMPLETED, // Step completed, but workflow may still be active
+    CLOSED, // Workflow is closed/terminated (distinct from COMPLETED)
     OVERDUE,
     CANCELLED,
     DEEMED_ACKNOWLEDGED // New: HRBP marked as acknowledged after employee missed deadline

@@ -2,6 +2,7 @@ package com.pip.controller;
 
 import com.pip.model.*;
 import com.pip.repository.PIPRepository;
+import com.pip.repository.UserRepository;
 import com.pip.security.JwtTokenProvider;
 import com.pip.service.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -26,6 +30,9 @@ public class PIPController {
     private PIPRepository pipRepository;
 
     @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private JwtTokenProvider tokenProvider;
 
     @Autowired
@@ -36,6 +43,15 @@ public class PIPController {
 
     @Autowired
     private DeadlineCalculationService deadlineCalculationService;
+
+    @Autowired
+    private PIPMetadataService metadataService;
+
+    @Autowired
+    private SuccessCriteriaService successCriteriaService;
+
+    @Autowired
+    private PIPTrackRecordPDFService pdfService;
 
     @GetMapping
     public ResponseEntity<?> getAllPIPs(@RequestHeader("Authorization") String authHeader) {
@@ -64,6 +80,26 @@ public class PIPController {
             // Check access
             if (!canAccessPIP(userId, role, pip)) {
                 return ResponseEntity.status(403).body(Map.of("error", "Access denied"));
+            }
+
+            // Filter out HRBP_REVIEW from active workflow steps (Issue 3 fix)
+            // HRBP_REVIEW is the initial approval step, not part of the active workflow lifecycle
+            if (pip.getSteps() != null) {
+                List<PIPStep> activeWorkflowSteps = pip.getSteps().stream()
+                    .filter(s -> s.getStep() != StepName.HRBP_REVIEW)
+                    .collect(java.util.stream.Collectors.toList());
+                pip.setSteps(activeWorkflowSteps);
+            }
+            
+            // Ensure all metadata is populated if missing
+            if (pip.getSuccessCriteriaMetadata() == null && pip.getFinalOutcome() != null) {
+                pip.setSuccessCriteriaMetadata(metadataService.createSuccessCriteriaMetadata(pip));
+            }
+            if (pip.getExtensionPolicyMetadata() == null) {
+                pip.setExtensionPolicyMetadata(metadataService.createExtensionPolicyMetadata(pip));
+            }
+            if (pip.getCheckInValidationMetadata() == null && pip.getCheckIns() != null && !pip.getCheckIns().isEmpty()) {
+                pip.setCheckInValidationMetadata(metadataService.createCheckInValidationMetadata(pip));
             }
 
             return ResponseEntity.ok(Map.of("pip", pip));
@@ -254,8 +290,16 @@ public class PIPController {
 
             pip.setFinalOutcome(FinalOutcome.valueOf(request.get("outcome").toUpperCase()));
             pip.setFinalRemarks(request.get("remarks"));
-            pip.setStatus(PIPStatus.COMPLETED);
+            // Use CLOSED status for workflow termination (distinct from step COMPLETED)
+            pip.setStatus(PIPStatus.CLOSED);
             pip.setLocked(true);
+            
+            // Calculate and store success criteria
+            pip.setSuccessCriteriaMetadata(metadataService.createSuccessCriteriaMetadata(pip));
+            
+            // Store extension policy metadata
+            pip.setExtensionPolicyMetadata(metadataService.createExtensionPolicyMetadata(pip));
+            
             pipRepository.save(pip);
 
             PIPService.StepUpdateRequest stepUpdate = new PIPService.StepUpdateRequest();
@@ -265,6 +309,14 @@ public class PIPController {
             pipService.updateStep(id, "hrbp_decision", stepUpdate);
 
             PIP updated = pipRepository.findById(id).orElse(pip);
+            
+            // Filter out HRBP_REVIEW from active workflow steps (Issue 3 fix)
+            // HRBP_REVIEW is the initial approval, not part of active workflow
+            List<PIPStep> activeWorkflowSteps = updated.getSteps().stream()
+                .filter(s -> s.getStep() != StepName.HRBP_REVIEW)
+                .collect(java.util.stream.Collectors.toList());
+            updated.setSteps(activeWorkflowSteps);
+            
             return ResponseEntity.ok(Map.of("pip", updated));
         } catch (Exception e) {
             return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
@@ -559,11 +611,90 @@ public class PIPController {
         }
     }
 
+    @GetMapping("/{id}/track-record-pdf")
+    public ResponseEntity<?> getTrackRecordPDF(@PathVariable String id, @RequestHeader("Authorization") String authHeader) {
+        try {
+            String token = authHeader.replace("Bearer ", "");
+            String userId = tokenProvider.getUserIdFromToken(token);
+            String role = tokenProvider.getClaimsFromToken(token).get("role", String.class).toLowerCase();
+
+            PIP pip = pipRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("PIP not found"));
+
+            // Check access
+            if (!canAccessPIP(userId, role, pip)) {
+                // Return detailed error for debugging (in production, remove sensitive info)
+                return ResponseEntity.status(403)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(Map.of(
+                            "error", "Access denied",
+                            "message", "You do not have permission to access this PIP's track record",
+                            "userId", userId != null ? userId : "null",
+                            "userRole", role != null ? role : "null",
+                            "pipEmployeeId", pip.getEmployeeId() != null ? pip.getEmployeeId() : "null",
+                            "pipManagerId", pip.getManagerId() != null ? pip.getManagerId() : "null",
+                            "pipHrbpId", pip.getHrbpId() != null ? pip.getHrbpId() : "null"
+                        ));
+            }
+
+            // Generate PDF
+            byte[] pdfBytes = pdfService.generateTrackRecordPDF(pip);
+
+            // Create filename
+            String employeeName = "Employee";
+            if (pip.getEmployeeId() != null) {
+                var employeeOpt = userRepository.findById(pip.getEmployeeId());
+                if (employeeOpt.isPresent()) {
+                    var employee = employeeOpt.get();
+                    employeeName = employee.getFirstName() + "_" + employee.getLastName();
+                }
+            }
+
+            String filename = String.format("PIP_TrackRecord_%s_%s_%s.pdf",
+                employeeName.replace(" ", "_"),
+                pip.getId().substring(0, Math.min(8, pip.getId().length())),
+                java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", filename);
+            headers.setContentLength(pdfBytes.length);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(new ByteArrayResource(pdfBytes));
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Return JSON error response for proper error handling in frontend
+            return ResponseEntity.status(500)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("error", "Failed to generate PDF: " + e.getMessage(), "details", e.getClass().getSimpleName()));
+        }
+    }
+
     private boolean canAccessPIP(String userId, String role, PIP pip) {
-        return "admin".equals(role) || "executive".equals(role) ||
-                pip.getEmployeeId().equals(userId) ||
-                pip.getManagerId().equals(userId) ||
-                pip.getHrbpId().equals(userId);
+        if (userId == null || role == null || pip == null) {
+            return false;
+        }
+        
+        // Admin, executive, and HRBP roles have full access to all PIPs
+        if ("admin".equals(role) || "executive".equals(role) || "hrbp".equals(role)) {
+            return true;
+        }
+        
+        // Check if user is the employee or manager of this specific PIP
+        if (pip.getEmployeeId() != null && pip.getEmployeeId().equals(userId)) {
+            return true;
+        }
+        if (pip.getManagerId() != null && pip.getManagerId().equals(userId)) {
+            return true;
+        }
+        // Also check if user is the assigned HRBP (even if not HRBP role, they might be assigned)
+        if (pip.getHrbpId() != null && pip.getHrbpId().equals(userId)) {
+            return true;
+        }
+        
+        return false;
     }
 }
 

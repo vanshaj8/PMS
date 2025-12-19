@@ -32,6 +32,7 @@ import {
   Edit,
   Download,
   NoteAdd,
+  PictureAsPdf,
 } from '@mui/icons-material';
 import { pipService } from '../services/pipService';
 import { PIP, Goal } from '../types';
@@ -49,6 +50,7 @@ export default function PIPDetailPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'acknowledge' | 'self-review' | 'manager-review' | 'hrbp-review' | 'final-decision' | 'checkin' | null>(null);
   const [formData, setFormData] = useState<any>({});
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -104,6 +106,86 @@ export default function PIPDetailPage() {
     setDialogOpen(true);
   };
 
+  const handleDownloadPDF = async () => {
+    if (!id || !pip) return;
+    
+    setDownloadingPDF(true);
+    try {
+      const blob = await pipService.downloadTrackRecordPDF(id);
+      
+      // Check if the blob is actually an error JSON response
+      if (blob.type === 'application/json') {
+        const text = await blob.text();
+        const errorData = JSON.parse(text);
+        throw new Error(errorData.error || 'Failed to generate PDF');
+      }
+      
+      // Check if blob is empty or too small (likely an error)
+      if (blob.size < 100) {
+        const text = await blob.text();
+        try {
+          const errorData = JSON.parse(text);
+          throw new Error(errorData.error || 'Failed to generate PDF');
+        } catch {
+          throw new Error('PDF generation failed. The file is too small or invalid.');
+        }
+      }
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // Try to get filename from Content-Disposition header, otherwise use default
+      const employeeName = pip.employeeId ? `Employee_${pip.employeeId.substring(0, 8)}` : 'Employee';
+      const date = new Date().toISOString().split('T')[0];
+      link.download = `PIP_TrackRecord_${employeeName}_${id.substring(0, 8)}_${date}.pdf`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      console.error('Failed to download PDF:', error);
+      
+      // Try to get detailed error message
+      let errorMessage = 'Failed to download PDF. Please try again.';
+      
+      if (error.response?.data) {
+        // If response data is a blob (JSON error), parse it
+        if (error.response.data instanceof Blob) {
+          try {
+            const text = await error.response.data.text();
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.message || errorData.error || errorMessage;
+            
+            // Log detailed access denial info for debugging
+            if (errorData.userId || errorData.userRole) {
+              console.error('Access denied details:', {
+                userId: errorData.userId,
+                userRole: errorData.userRole,
+                pipEmployeeId: errorData.pipEmployeeId,
+                pipManagerId: errorData.pipManagerId,
+                pipHrbpId: errorData.pipHrbpId
+              });
+            }
+          } catch (parseError) {
+            errorMessage = error.response.status === 403 
+              ? 'Access denied. You do not have permission to download this PIP track record.'
+              : errorMessage;
+          }
+        } else if (typeof error.response.data === 'object') {
+          errorMessage = error.response.data.message || error.response.data.error || errorMessage;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
+
   if (loading) {
     return <Box>Loading...</Box>;
   }
@@ -128,10 +210,13 @@ export default function PIPDetailPage() {
         <Typography variant="h4">PIP Details</Typography>
         <Box display="flex" gap={1}>
           <Button
-            startIcon={<Download />}
-            onClick={() => window.open(`/api/reports/pip/${id}/pdf`, '_blank')}
+            startIcon={downloadingPDF ? <Schedule /> : <PictureAsPdf />}
+            onClick={handleDownloadPDF}
+            disabled={downloadingPDF}
+            variant="outlined"
+            color="primary"
           >
-            Export PDF
+            {downloadingPDF ? 'Generating PDF...' : 'Download Track Record PDF'}
           </Button>
           <Button onClick={() => navigate('/pips')}>Back to List</Button>
         </Box>

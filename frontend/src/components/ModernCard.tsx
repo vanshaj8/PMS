@@ -18,6 +18,9 @@ export default function ModernCard({ title, subtitle, children, action, sx, head
         boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.1), 0px 1px 2px rgba(0, 0, 0, 0.06)',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         border: '1px solid rgba(0, 0, 0, 0.05)',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         '&:hover': {
           boxShadow: '0px 10px 25px rgba(0, 0, 0, 0.1)',
           transform: 'translateY(-2px)',
@@ -32,11 +35,12 @@ export default function ModernCard({ title, subtitle, children, action, sx, head
           action={action}
           sx={{
             pb: 1,
+            flexShrink: 0,
             ...headerSx,
           }}
         />
       )}
-      <CardContent sx={{ pt: title ? 0 : 2 }}>{children}</CardContent>
+      <CardContent sx={{ pt: title ? 0 : 2, flex: 1, overflow: 'auto' }}>{children}</CardContent>
     </Card>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -24,6 +25,12 @@ import {
   FormControlLabel,
   Switch,
   Avatar,
+  Paper,
+  Divider,
+  InputAdornment,
+  Collapse,
+  Card,
+  CardContent,
 } from '@mui/material';
 import ModernCard from '../components/ModernCard';
 import {
@@ -34,6 +41,12 @@ import {
   Assignment,
   Group,
   Visibility,
+  FilterList,
+  Clear,
+  ExpandMore,
+  ExpandLess,
+  PersonAdd,
+  Refresh,
 } from '@mui/icons-material';
 import { userManagementService, UserSearchFilters, UserSearchResult } from '../services/userManagementService';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,6 +57,7 @@ import { pipService } from '../services/pipService';
 
 export default function UserManagementPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [filters, setFilters] = useState<UserSearchFilters>({});
@@ -59,11 +73,46 @@ export default function UserManagementPage() {
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
   const [selectedUserForProfile, setSelectedUserForProfile] = useState<UserSearchResult | null>(null);
   const [userPips, setUserPips] = useState<PIP[]>([]);
+  const [filtersExpanded, setFiltersExpanded] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     loadAllUsers();
+    
+    // Handle URL parameters for contextual navigation from dashboard
+    const filterParam = searchParams.get('filter');
+    const managerIdParam = searchParams.get('managerId');
+    
+    if (filterParam === 'missingManager') {
+      setFilters({ missingManager: true });
+      setFiltersExpanded(true);
+    } else if (filterParam === 'missingHRBP' || filterParam === 'missingHrbp') {
+      setFilters({ missingHrbp: true });
+      setFiltersExpanded(true);
+    } else if (filterParam === 'circularReporting') {
+      // This would need backend support
+      setFilters({});
+    } else if (filterParam === 'selfReporting') {
+      // This would need backend support
+      setFilters({});
+    } else if (managerIdParam) {
+      // Filter by specific manager - would need backend support
+      setFilters({});
+    }
+    
+    // Initial search - always perform on mount
     performSearch();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
+
+  // Auto-search when filters change (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      performSearch();
+    }, 500);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, searchQuery]);
 
   const loadAllUsers = async () => {
     try {
@@ -77,16 +126,32 @@ export default function UserManagementPage() {
   const performSearch = async () => {
     setLoading(true);
     try {
-      const results = await userManagementService.searchUsers(filters);
-      setSearchResults(results);
-    } catch (error) {
+      const searchFilters = { ...filters };
+      if (searchQuery && searchQuery.trim()) {
+        // Search in name, email, or user ID (backend handles all)
+        searchFilters.userName = searchQuery.trim();
+      }
+      const results = await userManagementService.searchUsers(searchFilters);
+      setSearchResults(results || []);
+    } catch (error: any) {
       console.error('Search failed:', error);
+      console.error('Error details:', error.response?.data || error.message);
+      // Show user-friendly error but don't clear results if it's a network error
+      if (error.response?.status === 404 || error.response?.status === 500) {
+        setSearchResults([]);
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleSearch = () => {
+    performSearch();
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    setSearchQuery('');
     performSearch();
   };
 
@@ -218,6 +283,8 @@ export default function UserManagementPage() {
     }
   };
 
+  const activeFiltersCount = Object.keys(filters).filter(key => filters[key as keyof UserSearchFilters]).length + (searchQuery ? 1 : 0);
+
   if (user?.role !== 'admin') {
     return (
       <Box>
@@ -231,7 +298,8 @@ export default function UserManagementPage() {
   const hrbps = allUsers.filter(u => u.role === 'hrbp' && (u as any).isActive);
 
   return (
-    <Box>
+    <Box sx={{ pb: 4 }}>
+      {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Typography
           variant="h3"
@@ -250,107 +318,322 @@ export default function UserManagementPage() {
         </Typography>
       </Box>
 
-      {/* Search Filters Sidebar */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={3}>
-          <ModernCard title="Filters" sx={{ position: 'sticky', top: 100 }}>
-            <Grid container spacing={2}>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="User Name"
-              value={filters.userName || ''}
-              onChange={(e) => setFilters({ ...filters, userName: e.target.value || undefined })}
-              size="small"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="User ID"
-              value={filters.userId || ''}
-              onChange={(e) => setFilters({ ...filters, userId: e.target.value || undefined })}
-              size="small"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              select
-              label="Role"
-              value={filters.role || ''}
-              onChange={(e) => setFilters({ ...filters, role: e.target.value as any || undefined })}
-              size="small"
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="employee">Employee</MenuItem>
-              <MenuItem value="manager">Manager</MenuItem>
-              <MenuItem value="hrbp">HRBP</MenuItem>
-              <MenuItem value="admin">Admin</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              select
-              label="Status"
-              value={filters.status || ''}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value as any || undefined })}
-              size="small"
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="active">Active</MenuItem>
-              <MenuItem value="inactive">Inactive</MenuItem>
-              <MenuItem value="on_pip">On PIP</MenuItem>
-              <MenuItem value="completed_pip">Completed PIP</MenuItem>
-            </TextField>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              label="Department"
-              value={filters.department || ''}
-              onChange={(e) => setFilters({ ...filters, department: e.target.value || undefined })}
-              size="small"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={filters.missingManager || false}
-                  onChange={(e) => setFilters({ ...filters, missingManager: e.target.checked || undefined })}
-                />
-              }
-              label="Missing Manager"
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={filters.missingHrbp || false}
-                  onChange={(e) => setFilters({ ...filters, missingHrbp: e.target.checked || undefined })}
-                />
-              }
-              label="Missing HRBP"
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Button variant="contained" startIcon={<Search />} onClick={handleSearch}>
-              Search
-            </Button>
-            <Button sx={{ ml: 1 }} onClick={() => {
-              setFilters({});
+      {/* Search Bar - Prominent */}
+      <ModernCard sx={{ mb: 3 }}>
+        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+          <TextField
+            fullWidth
+            placeholder="Search by name, email, or user ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            size="medium"
+            sx={{ flex: 1, minWidth: 300 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search color="action" />
+                </InputAdornment>
+              ),
+              endAdornment: searchQuery && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchQuery('')}>
+                    <Clear fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Button
+            variant="contained"
+            startIcon={<Search />}
+            onClick={handleSearch}
+            sx={{ minWidth: 120 }}
+          >
+            Search
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Refresh />}
+            onClick={() => {
+              handleClearFilters();
               performSearch();
-            }}>
-              Clear
-            </Button>
-          </Grid>
+            }}
+          >
+            Reset
+          </Button>
+        </Box>
+      </ModernCard>
+
+      {/* Filters Section - Highly Visible */}
+      <ModernCard 
+        sx={{ 
+          mb: 3,
+          border: '2px solid',
+          borderColor: filtersExpanded ? 'primary.main' : 'divider',
+        }}
+      >
+        <Box
+          display="flex"
+          justifyContent="space-between"
+          alignItems="center"
+          sx={{ cursor: 'pointer' }}
+          onClick={() => setFiltersExpanded(!filtersExpanded)}
+        >
+          <Box display="flex" alignItems="center" gap={2}>
+            <FilterList color="primary" />
+            <Typography variant="h6" fontWeight={600}>
+              Filters
+            </Typography>
+            {activeFiltersCount > 0 && (
+              <Chip
+                label={activeFiltersCount}
+                color="primary"
+                size="small"
+                sx={{ fontWeight: 600 }}
+              />
+            )}
+          </Box>
+          <IconButton>
+            {filtersExpanded ? <ExpandLess /> : <ExpandMore />}
+          </IconButton>
+        </Box>
+
+        <Collapse in={filtersExpanded}>
+          <Divider sx={{ my: 2 }} />
+          
+          <Grid container spacing={3}>
+            {/* Basic Filters */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
+                BASIC FILTERS
+              </Typography>
             </Grid>
-          </ModernCard>
-        </Grid>
-        <Grid item xs={12} md={9}>
+            
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                label="User ID"
+                value={filters.userId || ''}
+                onChange={(e) => setFilters({ ...filters, userId: e.target.value || undefined })}
+                size="small"
+                placeholder="Enter user ID"
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                select
+                label="Role"
+                value={filters.role || ''}
+                onChange={(e) => setFilters({ ...filters, role: e.target.value as any || undefined })}
+                size="small"
+              >
+                <MenuItem value="">All Roles</MenuItem>
+                <MenuItem value="employee">Employee</MenuItem>
+                <MenuItem value="manager">Manager</MenuItem>
+                <MenuItem value="hrbp">HRBP</MenuItem>
+                <MenuItem value="admin">Admin</MenuItem>
+                <MenuItem value="executive">Executive</MenuItem>
+              </TextField>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                select
+                label="Status"
+                value={filters.status || ''}
+                onChange={(e) => setFilters({ ...filters, status: e.target.value as any || undefined })}
+                size="small"
+              >
+                <MenuItem value="">All Status</MenuItem>
+                <MenuItem value="active">Active</MenuItem>
+                <MenuItem value="inactive">Inactive</MenuItem>
+                <MenuItem value="on_pip">On PIP</MenuItem>
+                <MenuItem value="completed_pip">Completed PIP</MenuItem>
+              </TextField>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                fullWidth
+                label="Department"
+                value={filters.department || ''}
+                onChange={(e) => setFilters({ ...filters, department: e.target.value || undefined })}
+                size="small"
+                placeholder="Enter department"
+              />
+            </Grid>
+
+            {/* Relationship Filters */}
+            <Grid item xs={12} sx={{ mt: 1 }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, fontWeight: 600 }}>
+                RELATIONSHIP FILTERS
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={4}>
+              <Card
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  bgcolor: filters.missingManager ? 'error.light' : 'background.paper',
+                  border: filters.missingManager ? '2px solid' : '1px solid',
+                  borderColor: filters.missingManager ? 'error.main' : 'divider',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: filters.missingManager ? 'error.light' : 'action.hover',
+                  },
+                }}
+                onClick={() => setFilters({ ...filters, missingManager: !filters.missingManager })}
+              >
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={filters.missingManager || false}
+                      onChange={(e) => setFilters({ ...filters, missingManager: e.target.checked || undefined })}
+                      color="error"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>
+                        Missing Manager
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Users without assigned manager
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={4}>
+              <Card
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  bgcolor: filters.missingHrbp ? 'error.light' : 'background.paper',
+                  border: filters.missingHrbp ? '2px solid' : '1px solid',
+                  borderColor: filters.missingHrbp ? 'error.main' : 'divider',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    bgcolor: filters.missingHrbp ? 'error.light' : 'action.hover',
+                  },
+                }}
+                onClick={() => setFilters({ ...filters, missingHrbp: !filters.missingHrbp })}
+              >
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={filters.missingHrbp || false}
+                      onChange={(e) => setFilters({ ...filters, missingHrbp: e.target.checked || undefined })}
+                      color="error"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  }
+                  label={
+                    <Box>
+                      <Typography variant="body2" fontWeight={600}>
+                        Missing HRBP
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Users without assigned HRBP
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </Card>
+            </Grid>
+
+            {/* Quick Filter Chips */}
+            {activeFiltersCount > 0 && (
+              <Grid item xs={12} sx={{ mt: 1 }}>
+                <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+                  <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
+                    Active filters:
+                  </Typography>
+                  {filters.role && (
+                    <Chip
+                      label={`Role: ${filters.role}`}
+                      onDelete={() => setFilters({ ...filters, role: undefined })}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  )}
+                  {filters.status && (
+                    <Chip
+                      label={`Status: ${filters.status}`}
+                      onDelete={() => setFilters({ ...filters, status: undefined })}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  )}
+                  {filters.department && (
+                    <Chip
+                      label={`Dept: ${filters.department}`}
+                      onDelete={() => setFilters({ ...filters, department: undefined })}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  )}
+                  {filters.missingManager && (
+                    <Chip
+                      label="Missing Manager"
+                      onDelete={() => setFilters({ ...filters, missingManager: undefined })}
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                    />
+                  )}
+                  {filters.missingHrbp && (
+                    <Chip
+                      label="Missing HRBP"
+                      onDelete={() => setFilters({ ...filters, missingHrbp: undefined })}
+                      size="small"
+                      color="error"
+                      variant="outlined"
+                    />
+                  )}
+                  {searchQuery && (
+                    <Chip
+                      label={`Search: ${searchQuery}`}
+                      onDelete={() => setSearchQuery('')}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  )}
+                  <Button
+                    size="small"
+                    startIcon={<Clear />}
+                    onClick={handleClearFilters}
+                    sx={{ ml: 'auto' }}
+                  >
+                    Clear All
+                  </Button>
+                </Box>
+              </Grid>
+            )}
+          </Grid>
+        </Collapse>
+      </ModernCard>
+
+      {/* Results Summary */}
+      <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Typography variant="h6" fontWeight={600}>
+          Results: {searchResults.length} user{searchResults.length !== 1 ? 's' : ''}
+        </Typography>
+        {loading && <Typography variant="body2" color="text.secondary">Loading...</Typography>}
+      </Box>
 
       {/* Bulk Actions */}
       {selectedUsers.size > 0 && (
@@ -361,29 +644,46 @@ export default function UserManagementPage() {
             color: 'white',
           }}
         >
-          <Box display="flex" alignItems="center" gap={2}>
+          <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
             <Typography sx={{ color: 'white', fontWeight: 600 }}>
-              {selectedUsers.size} users selected
+              {selectedUsers.size} user{selectedUsers.size !== 1 ? 's' : ''} selected
             </Typography>
             <Button
               size="small"
-              variant="outlined"
+              variant="contained"
+              startIcon={<Assignment />}
               onClick={() => handleBulkAction('manager')}
+              sx={{
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' },
+              }}
             >
               Bulk Assign Manager
             </Button>
             <Button
               size="small"
-              variant="outlined"
+              variant="contained"
+              startIcon={<Group />}
               onClick={() => handleBulkAction('hrbp')}
+              sx={{
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' },
+              }}
             >
               Bulk Assign HRBP
             </Button>
             <Button
               size="small"
-              color="error"
-              variant="outlined"
+              variant="contained"
+              startIcon={<PersonRemove />}
               onClick={() => handleBulkAction('deactivate')}
+              sx={{
+                bgcolor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.3)' },
+              }}
             >
               Bulk Deactivate
             </Button>
@@ -391,132 +691,140 @@ export default function UserManagementPage() {
         </ModernCard>
       )}
 
-          {/* Results Table */}
-          <ModernCard>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell padding="checkbox">
+      {/* Results Table */}
+      <ModernCard>
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={selectedUsers.size === searchResults.length && searchResults.length > 0}
+                    indeterminate={selectedUsers.size > 0 && selectedUsers.size < searchResults.length}
+                    onChange={handleSelectAll}
+                  />
+                </TableCell>
+                <TableCell>User</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Manager</TableCell>
+                <TableCell>HRBP</TableCell>
+                <TableCell>PIPs</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {searchResults.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body1" color="text.secondary">
+                      No users found. Try adjusting your filters.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                searchResults.map((result) => (
+                  <TableRow
+                    key={result.user.id}
+                    hover
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': {
+                        bgcolor: 'action.hover',
+                      },
+                    }}
+                    onClick={() => handleViewProfile(result)}
+                  >
+                    <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
-                        checked={selectedUsers.size === searchResults.length && searchResults.length > 0}
-                        indeterminate={selectedUsers.size > 0 && selectedUsers.size < searchResults.length}
-                        onChange={handleSelectAll}
+                        checked={selectedUsers.has(result.user.id)}
+                        onChange={() => handleSelectUser(result.user.id)}
                       />
                     </TableCell>
-                    <TableCell>User</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Role</TableCell>
-                    <TableCell>Manager</TableCell>
-                    <TableCell>HRBP</TableCell>
-                    <TableCell>PIPs</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {searchResults.map((result) => (
-                    <TableRow
-                      key={result.user.id}
-                      hover
-                      sx={{
-                        cursor: 'pointer',
-                        '&:hover': {
-                          bgcolor: 'action.hover',
-                        },
-                      }}
-                      onClick={() => handleViewProfile(result)}
-                    >
-                      <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
-                        <Checkbox
-                          checked={selectedUsers.has(result.user.id)}
-                          onChange={() => handleSelectUser(result.user.id)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Avatar
-                            sx={{
-                              width: 40,
-                              height: 40,
-                              fontSize: 16,
-                              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                            }}
-                          >
-                            {result.user.firstName?.[0]}{result.user.lastName?.[0]}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2" fontWeight={500}>
-                              {result.user.firstName} {result.user.lastName}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {result.user.id}
-                            </Typography>
-                          </Box>
+                    <TableCell>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Avatar
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            fontSize: 16,
+                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          }}
+                        >
+                          {result.user.firstName?.[0]}{result.user.lastName?.[0]}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body2" fontWeight={500}>
+                            {result.user.firstName} {result.user.lastName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {result.user.id}
+                          </Typography>
                         </Box>
-                      </TableCell>
-                      <TableCell>{result.user.email}</TableCell>
-                      <TableCell>
-                        <Chip label={result.user.role} size="small" />
-                      </TableCell>
-                      <TableCell>
-                        {result.manager ? (
-                          `${result.manager.firstName} ${result.manager.lastName}`
-                        ) : (
-                          <Chip label="Missing" color="warning" size="small" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {result.hrbp ? (
-                          `${result.hrbp.firstName} ${result.hrbp.lastName}`
-                        ) : (
-                          <Chip label="Missing" color="warning" size="small" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">
-                          Total: {result.pipCount}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Active: {result.activePipCount}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={(result.user as any).isActive ? 'Active' : 'Inactive'}
-                          color={(result.user as any).isActive ? 'success' : 'default'}
+                      </Box>
+                    </TableCell>
+                    <TableCell>{result.user.email}</TableCell>
+                    <TableCell>
+                      <Chip label={result.user.role} size="small" />
+                    </TableCell>
+                    <TableCell>
+                      {result.manager ? (
+                        `${result.manager.firstName} ${result.manager.lastName}`
+                      ) : (
+                        <Chip label="Missing" color="warning" size="small" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {result.hrbp ? (
+                        `${result.hrbp.firstName} ${result.hrbp.lastName}`
+                      ) : (
+                        <Chip label="Missing" color="warning" size="small" />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        Total: {result.pipCount}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Active: {result.activePipCount}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={(result.user as any).isActive ? 'Active' : 'Inactive'}
+                        color={(result.user as any).isActive ? 'success' : 'default'}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <Box display="flex" gap={1}>
+                        <IconButton
                           size="small"
-                        />
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <Box display="flex" gap={1}>
-                          <IconButton
-                            size="small"
-                            onClick={() => handleViewProfile(result)}
-                            title="View Profile"
-                          >
-                            <Visibility />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setAnchorEl(e.currentTarget);
-                              setMenuUser(result);
-                            }}
-                          >
-                            <MoreVert />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </ModernCard>
-        </Grid>
-      </Grid>
+                          onClick={() => handleViewProfile(result)}
+                          title="View Profile"
+                        >
+                          <Visibility />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAnchorEl(e.currentTarget);
+                            setMenuUser(result);
+                          }}
+                        >
+                          <MoreVert />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </ModernCard>
 
       {/* Context Menu */}
       <Menu
@@ -707,4 +1015,3 @@ export default function UserManagementPage() {
     </Box>
   );
 }
-

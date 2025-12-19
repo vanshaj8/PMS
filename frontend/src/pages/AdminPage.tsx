@@ -5,12 +5,6 @@ import {
   Paper,
   Tabs,
   Tab,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Button,
   Dialog,
   DialogTitle,
@@ -18,9 +12,20 @@ import {
   DialogActions,
   TextField,
   MenuItem,
-  Chip,
+  Container,
+  AppBar,
+  Toolbar,
 } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import {
+  Dashboard,
+  People,
+  Upload,
+  ErrorOutline,
+  History,
+  Settings,
+  Description,
+  Add,
+} from '@mui/icons-material';
 import api from '../services/api';
 import { User } from '../types';
 import { useAuth } from '../contexts/AuthContext';
@@ -29,6 +34,35 @@ import ImportHistoryPage from './ImportHistoryPage';
 import UserManagementPage from './UserManagementPage';
 import InvalidRecordsPage from './InvalidRecordsPage';
 import AdminDashboardPage from './AdminDashboardPage';
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`admin-tabpanel-${index}`}
+      aria-labelledby={`admin-tab-${index}`}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    </div>
+  );
+}
+
+function a11yProps(index: number) {
+  return {
+    id: `admin-tab-${index}`,
+    'aria-controls': `admin-tabpanel-${index}`,
+  };
+}
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -75,81 +109,167 @@ export default function AdminPage() {
     }
   };
 
+  const handleChangeTab = (event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
+
   if (user?.role !== 'admin') {
     return (
-      <Box>
-        <Typography variant="h4">Access Denied</Typography>
-        <Typography>You must be an admin to access this page.</Typography>
-      </Box>
+      <Container maxWidth="xl">
+        <Box sx={{ py: 4, textAlign: 'center' }}>
+          <Typography variant="h4" gutterBottom>
+            Access Denied
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            You must be an admin to access this page.
+          </Typography>
+        </Box>
+      </Container>
     );
   }
 
+  const tabs = [
+    { label: 'Dashboard', icon: <Dashboard />, component: <AdminDashboardPage /> },
+    { label: 'User Management', icon: <People />, component: <UserManagementPage /> },
+    { label: 'Data Import', icon: <Upload />, component: <ImportPage /> },
+    { label: 'Invalid Records', icon: <ErrorOutline />, component: <InvalidRecordsPage /> },
+    { label: 'Import History', icon: <History />, component: <ImportHistoryPage /> },
+    { label: 'Settings', icon: <Settings />, component: <SettingsTabContent /> },
+    { label: 'Audit Logs', icon: <Description />, component: <AuditLogsTabContent /> },
+  ];
+
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Administration
-      </Typography>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      {/* Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography
+          variant="h3"
+          sx={{
+            fontWeight: 700,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            mb: 1,
+          }}
+        >
+          Administration
+        </Typography>
+        <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 400 }}>
+          Manage users, imports, settings, and system configuration
+        </Typography>
+      </Box>
 
-      <Paper sx={{ mt: 3 }}>
-        <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)}>
-          <Tab label="Dashboard" />
-          <Tab label="User Management" />
-          <Tab label="Data Import" />
-          <Tab label="Invalid Records" />
-          <Tab label="Import History" />
-          <Tab label="Settings" />
-          <Tab label="Audit Logs" />
-        </Tabs>
+      {/* Tabs Container */}
+      <Paper
+        elevation={0}
+        sx={{
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 2,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Tabs Header - Sticky and Scrollable */}
+        <Box
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            overflowX: 'auto',
+            '&::-webkit-scrollbar': {
+              height: '6px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(0,0,0,0.2)',
+              borderRadius: '3px',
+            },
+          }}
+        >
+          <Tabs
+            value={activeTab}
+            onChange={handleChangeTab}
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
+            sx={{
+              minHeight: 72,
+              '& .MuiTabs-scrollButtons': {
+                '&.Mui-disabled': {
+                  opacity: 0.3,
+                },
+              },
+              '& .MuiTab-root': {
+                minHeight: 72,
+                textTransform: 'none',
+                fontSize: '0.95rem',
+                fontWeight: 500,
+                px: { xs: 2, sm: 3 },
+                py: 2,
+                minWidth: { xs: 120, sm: 160 },
+                maxWidth: { xs: 200, sm: 240 },
+                '&.Mui-selected': {
+                  color: 'primary.main',
+                  fontWeight: 600,
+                },
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  bgcolor: 'action.hover',
+                },
+              },
+              '& .MuiTabs-indicator': {
+                height: 3,
+                borderRadius: '3px 3px 0 0',
+                bgcolor: 'primary.main',
+              },
+            }}
+          >
+            {tabs.map((tab, index) => (
+              <Tab
+                key={index}
+                icon={tab.icon}
+                iconPosition="start"
+                label={tab.label}
+                {...a11yProps(index)}
+                sx={{
+                  gap: 1.5,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'flex-start',
+                  '& .MuiTab-iconWrapper': {
+                    marginRight: 1,
+                    marginBottom: 0,
+                  },
+                }}
+              />
+            ))}
+          </Tabs>
+        </Box>
 
-        {activeTab === 0 && (
-          <Box sx={{ p: 0 }}>
-            <AdminDashboardPage />
-          </Box>
-        )}
-
-        {activeTab === 1 && (
-          <Box sx={{ p: 0 }}>
-            <UserManagementPage />
-          </Box>
-        )}
-
-        {activeTab === 2 && (
-          <Box sx={{ p: 0 }}>
-            <ImportPage />
-          </Box>
-        )}
-
-        {activeTab === 3 && (
-          <Box sx={{ p: 0 }}>
-            <InvalidRecordsPage />
-          </Box>
-        )}
-
-        {activeTab === 4 && (
-          <Box sx={{ p: 0 }}>
-            <ImportHistoryPage />
-          </Box>
-        )}
-
-        {activeTab === 5 && (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h6">System Settings</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              Configuration options will be available here.
-            </Typography>
-          </Box>
-        )}
-
-        {activeTab === 6 && (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h6">Audit Logs</Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-              Audit log viewer will be available here.
-            </Typography>
-          </Box>
-        )}
+        {/* Tab Content */}
+        <Box 
+          sx={{ 
+            bgcolor: 'background.default', 
+            minHeight: '60vh',
+            '& > div': {
+              width: '100%',
+            },
+          }}
+        >
+          {tabs.map((tab, index) => (
+            <TabPanel key={index} value={activeTab} index={index}>
+              {tab.component}
+            </TabPanel>
+          ))}
+        </Box>
       </Paper>
 
+      {/* Create User Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Create User</DialogTitle>
         <DialogContent>
@@ -210,7 +330,48 @@ export default function AdminPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Container>
   );
 }
 
+// Settings Tab Content Component
+function SettingsTabContent() {
+  return (
+    <Container maxWidth="lg">
+      <Box sx={{ py: 4 }}>
+        <Typography variant="h5" gutterBottom fontWeight={600}>
+          System Settings
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 2, mb: 4 }}>
+          Configuration options will be available here.
+        </Typography>
+        <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
+          <Typography variant="body2" color="text.secondary">
+            Settings panel coming soon...
+          </Typography>
+        </Paper>
+      </Box>
+    </Container>
+  );
+}
+
+// Audit Logs Tab Content Component
+function AuditLogsTabContent() {
+  return (
+    <Container maxWidth="lg">
+      <Box sx={{ py: 4 }}>
+        <Typography variant="h5" gutterBottom fontWeight={600}>
+          Audit Logs
+        </Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ mt: 2, mb: 4 }}>
+          View and export audit logs for compliance and tracking.
+        </Typography>
+        <Paper sx={{ p: 3, bgcolor: 'background.paper' }}>
+          <Typography variant="body2" color="text.secondary">
+            Audit log viewer coming soon...
+          </Typography>
+        </Paper>
+      </Box>
+    </Container>
+  );
+}

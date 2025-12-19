@@ -99,6 +99,13 @@
             <version>5.2.5</version>
         </dependency>
 
+        <!-- Apache PDFBox for PDF generation -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+
         <!-- Lombok (optional, for cleaner code) -->
         <dependency>
             <groupId>org.projectlombok</groupId>

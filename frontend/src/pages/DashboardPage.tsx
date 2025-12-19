@@ -163,6 +163,33 @@ export default function DashboardPage() {
 
   const outcomeData = calculateOutcomeData();
 
+  // Custom label renderer for pie chart
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }: any) => {
+    if (percent < 0.05) return null; // Hide labels for very small slices
+    
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor={x > cx ? 'start' : 'end'}
+        dominantBaseline="central"
+        fontSize={12}
+        fontWeight={600}
+        style={{
+          textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
+        }}
+      >
+        {`${name}: ${(percent * 100).toFixed(0)}%`}
+      </text>
+    );
+  };
+
   const statCards = [
     {
       title: 'Total PIPs',
@@ -318,18 +345,40 @@ export default function DashboardPage() {
                 <Pie
                   data={outcomeData}
                   cx="50%"
-                  cy="50%"
+                  cy="45%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={100}
+                  label={renderCustomLabel}
+                  outerRadius={90}
+                  innerRadius={0}
                   fill="#8884d8"
                   dataKey="value"
+                  paddingAngle={3}
                 >
                   {outcomeData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip 
+                  formatter={(value: number, name: string) => [
+                    `${value} PIPs`,
+                    name
+                  ]}
+                  contentStyle={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                    padding: '8px',
+                  }}
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  formatter={(value) => value}
+                  wrapperStyle={{
+                    paddingTop: '10px',
+                  }}
+                  iconType="circle"
+                />
               </PieChart>
             </ResponsiveContainer>
           </ModernCard>

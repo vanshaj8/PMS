@@ -94,12 +94,37 @@ public class PIP {
     @Column(name = "original_active_duration")
     private Integer originalActiveDuration; // Original duration before extensions
 
+    // Metadata for compliance and auditing
+    @Column(name = "ack_escalation_metadata", columnDefinition = "TEXT")
+    private String ackEscalationMetadata; // JSON: escalation tracking for acknowledgement
+
+    @Column(name = "checkin_validation_metadata", columnDefinition = "TEXT")
+    private String checkInValidationMetadata; // JSON: check-in validation results
+
+    @Column(name = "success_criteria_metadata", columnDefinition = "TEXT")
+    private String successCriteriaMetadata; // JSON: success score and criteria
+
+    @Column(name = "extension_policy_metadata", columnDefinition = "TEXT")
+    private String extensionPolicyMetadata; // JSON: extension policy and usage
+
+    @Column(name = "timeline_versions", columnDefinition = "TEXT")
+    private String timelineVersions; // JSON array: timeline version history
+
+    @Column(name = "sla_attribution", columnDefinition = "TEXT")
+    private String slaAttribution; // JSON: delay attribution per step
+
+    @Column(name = "compliance_mode")
+    private String complianceMode = "STANDARD"; // STANDARD, STRICT, LOCAL_LAW
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         if (extensionCount == null) {
             extensionCount = 0;
+        }
+        if (complianceMode == null) {
+            complianceMode = "STANDARD";
         }
     }
 

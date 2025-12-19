@@ -102,5 +102,76 @@ export const pipService = {
     const response = await api.get('/pips/deadline-policy');
     return response.data;
   },
+
+  async downloadTrackRecordPDF(pipId: string): Promise<Blob> {
+    try {
+      const response = await api.get(`/pips/${pipId}/track-record-pdf`, {
+        responseType: 'blob',
+      });
+      
+      // Check if response is an error (non-200 status)
+      if (response.status !== 200) {
+        // Try to parse error message from blob
+        const text = await (response.data as Blob).text();
+        let errorMessage = 'Failed to download PDF';
+        let errorData: any = null;
+        try {
+          errorData = JSON.parse(text);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch {
+          errorMessage = text || errorMessage;
+        }
+        
+        // Create error with full details
+        const error = new Error(errorMessage) as any;
+        error.response = { data: errorData || { error: errorMessage }, status: response.status };
+        throw error;
+      }
+      
+      // Check if the response is actually JSON (error response with 200 status)
+      if (response.data.type && response.data.type.includes('json')) {
+        const text = await (response.data as Blob).text();
+        try {
+          const errorData = JSON.parse(text);
+          const error = new Error(errorData.message || errorData.error || 'Failed to generate PDF') as any;
+          error.response = { data: errorData, status: 200 };
+          throw error;
+        } catch (parseError) {
+          throw new Error('Failed to generate PDF');
+        }
+      }
+      
+      return response.data as Blob;
+    } catch (error: any) {
+      // If it's already an Error with response, rethrow it
+      if (error instanceof Error && error.response) {
+        throw error;
+      }
+      
+      // Handle axios errors
+      if (error.response) {
+        // If response is blob but is actually JSON error
+        if (error.response.data instanceof Blob) {
+          try {
+            const text = await error.response.data.text();
+            const errorData = JSON.parse(text);
+            const newError = new Error(errorData.message || errorData.error || 'Failed to download PDF') as any;
+            newError.response = { data: errorData, status: error.response.status };
+            throw newError;
+          } catch {
+            const newError = new Error('Failed to download PDF') as any;
+            newError.response = error.response;
+            throw newError;
+          }
+        }
+        // If response data is already an object
+        const newError = new Error(error.response.data?.message || error.response.data?.error || 'Failed to download PDF') as any;
+        newError.response = error.response;
+        throw newError;
+      }
+      // Otherwise, wrap it
+      throw new Error(error.message || 'Failed to download PDF');
+    }
+  },
 };
 
