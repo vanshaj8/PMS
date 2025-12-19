@@ -10,6 +10,7 @@ import {
   Alert,
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
+import Logo from '../components/Logo';
 
 // Get API base URL from environment variable
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -62,9 +63,9 @@ export default function LoginPage() {
         }}
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
-            PIP Management System
-          </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <Logo variant="full" size="large" showTagline={true} />
+          </Box>
           <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
             Sign in to continue
           </Typography>

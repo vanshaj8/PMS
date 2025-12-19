@@ -25,6 +25,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
 import NotificationBell from './NotificationBell';
+import Logo from './Logo';
 
 const drawerWidth = 240;
 
@@ -71,18 +72,9 @@ export default function Layout() {
         }}
       >
         <Toolbar>
-          <Typography
-            variant="h6"
-            noWrap
-            component="div"
-            sx={{
-              flexGrow: 1,
-              fontWeight: 700,
-              fontSize: '1.25rem',
-            }}
-          >
-            PIP Management System
-          </Typography>
+          <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center' }}>
+            <Logo variant="full" size="medium" showTagline={false} />
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <NotificationBell />
             <Typography variant="body2">

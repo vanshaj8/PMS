@@ -11,6 +11,8 @@ import ImportPage from './pages/ImportPage';
 import ImportHistoryPage from './pages/ImportHistoryPage';
 import UserManagementPage from './pages/UserManagementPage';
 import InvalidRecordsPage from './pages/InvalidRecordsPage';
+import UserGoalsPage from './pages/UserGoalsPage';
+import UserProfilePage from './pages/UserProfilePage';
 import Layout from './components/Layout';
 import { CircularProgress, Box } from '@mui/material';
 import { ToastProvider } from './components/ToastContext';
@@ -52,6 +54,8 @@ function App() {
           <Route path="admin" element={<AdminPage />} />
           <Route path="admin/user-management" element={<UserManagementPage />} />
           <Route path="admin/invalid-records" element={<InvalidRecordsPage />} />
+          <Route path="goals/users/:userId" element={<UserGoalsPage />} />
+          <Route path="users/:userId/profile" element={<UserProfilePage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="import/history" element={<ImportHistoryPage />} />
         </Route>

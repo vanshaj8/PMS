@@ -35,15 +35,14 @@ public class UserManagementController {
     @PostMapping("/search")
     public ResponseEntity<?> searchUsers(@RequestBody Map<String, Object> filters) {
         try {
-            List<User> allUsers = userRepository.findAll();
+            // Use database-level filtering with JPA Specifications
+            org.springframework.data.jpa.domain.Specification<User> spec = 
+                com.pip.repository.UserSpecification.buildSpecification(filters);
+            
+            List<User> filteredUsers = userRepository.findAll(spec);
             List<UserSearchResult> results = new ArrayList<>();
 
-            for (User user : allUsers) {
-                // Apply filters
-                if (!matchesFilters(user, filters)) {
-                    continue;
-                }
-
+            for (User user : filteredUsers) {
                 UserSearchResult result = new UserSearchResult();
                 result.user = createUserMap(user);
 
@@ -61,19 +60,25 @@ public class UserManagementController {
                     });
                 }
 
-                // Count PIPs
-                List<PIP> userPips = pipRepository.findAll().stream()
+                // Count PIPs using database queries
+                result.pipCount = (int) pipRepository.findAll().stream()
                     .filter(pip -> pip.getEmployeeId().equals(user.getId()) ||
                                   pip.getManagerId().equals(user.getId()) ||
                                   pip.getHrbpId().equals(user.getId()))
-                    .collect(Collectors.toList());
-
-                result.pipCount = userPips.size();
-                result.activePipCount = (int) userPips.stream()
-                    .filter(pip -> pip.getStatus() == PIPStatus.ACTIVE)
                     .count();
-                result.completedPipCount = (int) userPips.stream()
-                    .filter(pip -> pip.getStatus() == PIPStatus.COMPLETED || pip.getStatus() == PIPStatus.CLOSED)
+                
+                result.activePipCount = (int) pipRepository.findAll().stream()
+                    .filter(pip -> (pip.getEmployeeId().equals(user.getId()) ||
+                                   pip.getManagerId().equals(user.getId()) ||
+                                   pip.getHrbpId().equals(user.getId())) &&
+                                  pip.getStatus() == PIPStatus.ACTIVE)
+                    .count();
+                
+                result.completedPipCount = (int) pipRepository.findAll().stream()
+                    .filter(pip -> (pip.getEmployeeId().equals(user.getId()) ||
+                                   pip.getManagerId().equals(user.getId()) ||
+                                   pip.getHrbpId().equals(user.getId())) &&
+                                  (pip.getStatus() == PIPStatus.COMPLETED || pip.getStatus() == PIPStatus.CLOSED))
                     .count();
 
                 results.add(result);
@@ -85,72 +90,16 @@ public class UserManagementController {
         }
     }
 
-    private boolean matchesFilters(User user, Map<String, Object> filters) {
-        // User name filter - also searches email and user ID
-        if (filters.containsKey("userName") && filters.get("userName") != null) {
-            String searchTerm = filters.get("userName").toString().toLowerCase();
-            String fullName = (user.getFirstName() + " " + user.getLastName()).toLowerCase();
-            String email = user.getEmail() != null ? user.getEmail().toLowerCase() : "";
-            String userId = user.getId() != null ? user.getId().toLowerCase() : "";
+    @GetMapping("/{userId}/pips")
+    public ResponseEntity<?> getUserPIPs(@PathVariable String userId) {
+        try {
+            // Use repository method for efficient database query
+            List<PIP> userPips = pipRepository.findByEmployeeIdOrManagerIdOrHrbpId(userId, userId, userId);
             
-            if (!fullName.contains(searchTerm) && 
-                !email.contains(searchTerm) && 
-                !userId.contains(searchTerm)) {
-                return false;
-            }
+            return ResponseEntity.ok(Map.of("pips", userPips));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
-
-        // User ID filter
-        if (filters.containsKey("userId") && filters.get("userId") != null) {
-            String searchId = filters.get("userId").toString();
-            if (!user.getId().toLowerCase().contains(searchId.toLowerCase())) {
-                return false;
-            }
-        }
-
-        // Role filter
-        if (filters.containsKey("role") && filters.get("role") != null) {
-            String filterRole = filters.get("role").toString().toUpperCase();
-            if (!user.getRole().name().equals(filterRole)) {
-                return false;
-            }
-        }
-
-        // Status filter
-        if (filters.containsKey("status") && filters.get("status") != null) {
-            String status = filters.get("status").toString();
-            if ("active".equals(status) && (user.getIsActive() == null || !user.getIsActive())) {
-                return false;
-            }
-            if ("inactive".equals(status) && (user.getIsActive() != null && user.getIsActive())) {
-                return false;
-            }
-            // on_pip and completed_pip would need PIP status check
-        }
-
-        // Department filter
-        if (filters.containsKey("department") && filters.get("department") != null) {
-            String dept = filters.get("department").toString().toLowerCase();
-            if (user.getDepartment() == null || !user.getDepartment().toLowerCase().contains(dept)) {
-                return false;
-            }
-        }
-
-        // Missing Manager filter
-        if (filters.containsKey("missingManager") && Boolean.TRUE.equals(filters.get("missingManager"))) {
-            if (user.getManagerId() != null && !user.getManagerId().isEmpty()) {
-                return false;
-            }
-        }
-
-        // Missing HRBP filter
-        if (filters.containsKey("missingHrbp") && Boolean.TRUE.equals(filters.get("missingHrbp"))) {
-            if (user.getHrbpId() != null && !user.getHrbpId().isEmpty()) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     @GetMapping("/{userId}/details")
@@ -246,12 +195,33 @@ public class UserManagementController {
 
             if (updates.containsKey("firstName")) user.setFirstName(updates.get("firstName").toString());
             if (updates.containsKey("lastName")) user.setLastName(updates.get("lastName").toString());
+            if (updates.containsKey("preferredName")) user.setPreferredName(updates.get("preferredName") != null ? updates.get("preferredName").toString() : null);
             if (updates.containsKey("email")) user.setEmail(updates.get("email").toString());
+            if (updates.containsKey("phoneNumber")) user.setPhoneNumber(updates.get("phoneNumber") != null ? updates.get("phoneNumber").toString() : null);
+            if (updates.containsKey("profilePhoto")) user.setProfilePhoto(updates.get("profilePhoto") != null ? updates.get("profilePhoto").toString() : null);
             if (updates.containsKey("role")) {
                 user.setRole(UserRole.valueOf(updates.get("role").toString().toUpperCase()));
             }
-            if (updates.containsKey("department")) user.setDepartment(updates.get("department").toString());
-            if (updates.containsKey("location")) user.setLocation(updates.get("location").toString());
+            if (updates.containsKey("jobTitle")) user.setJobTitle(updates.get("jobTitle") != null ? updates.get("jobTitle").toString() : null);
+            if (updates.containsKey("department")) user.setDepartment(updates.get("department") != null ? updates.get("department").toString() : null);
+            if (updates.containsKey("businessUnit")) user.setBusinessUnit(updates.get("businessUnit") != null ? updates.get("businessUnit").toString() : null);
+            if (updates.containsKey("location")) user.setLocation(updates.get("location") != null ? updates.get("location").toString() : null);
+            if (updates.containsKey("employmentType")) {
+                try {
+                    user.setEmploymentType(com.pip.model.EmploymentType.valueOf(updates.get("employmentType").toString().toUpperCase()));
+                } catch (Exception e) {
+                    // Invalid enum value, skip
+                }
+            }
+            if (updates.containsKey("dateOfJoining")) {
+                try {
+                    user.setDateOfJoining(java.time.LocalDate.parse(updates.get("dateOfJoining").toString()));
+                } catch (Exception e) {
+                    // Invalid date format, skip
+                }
+            }
+            if (updates.containsKey("employmentLevel")) user.setEmploymentLevel(updates.get("employmentLevel") != null ? updates.get("employmentLevel").toString() : null);
+            if (updates.containsKey("costCenter")) user.setCostCenter(updates.get("costCenter") != null ? updates.get("costCenter").toString() : null);
             if (updates.containsKey("isActive")) {
                 user.setIsActive(Boolean.parseBoolean(updates.get("isActive").toString()));
             }
@@ -478,12 +448,24 @@ public class UserManagementController {
         userMap.put("email", user.getEmail());
         userMap.put("firstName", user.getFirstName());
         userMap.put("lastName", user.getLastName());
+        userMap.put("preferredName", user.getPreferredName());
+        userMap.put("phoneNumber", user.getPhoneNumber());
+        userMap.put("profilePhoto", user.getProfilePhoto());
         userMap.put("role", user.getRole().name().toLowerCase());
+        userMap.put("jobTitle", user.getJobTitle());
         userMap.put("department", user.getDepartment());
+        userMap.put("businessUnit", user.getBusinessUnit());
         userMap.put("location", user.getLocation());
+        userMap.put("employmentType", user.getEmploymentType() != null ? user.getEmploymentType().name() : null);
+        userMap.put("dateOfJoining", user.getDateOfJoining() != null ? user.getDateOfJoining().toString() : null);
+        userMap.put("employmentLevel", user.getEmploymentLevel());
+        userMap.put("costCenter", user.getCostCenter());
         userMap.put("managerId", user.getManagerId());
         userMap.put("hrbpId", user.getHrbpId());
+        userMap.put("skipLevelManagerId", user.getSkipLevelManagerId());
         userMap.put("isActive", user.getIsActive());
+        userMap.put("lastLogin", user.getLastLogin() != null ? user.getLastLogin().toString() : null);
+        userMap.put("mfaEnabled", user.getMfaEnabled());
         return userMap;
     }
 

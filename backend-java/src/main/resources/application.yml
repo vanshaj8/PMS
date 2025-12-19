@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: pip-management-backend
+    name: performix-backend
   
   # MySQL DataSource Configuration
   datasource:
@@ -21,7 +21,7 @@ spring:
       max-lifetime: 1800000
       connection-timeout: 30000
       connection-test-query: SELECT 1
-      pool-name: PIPManagementHikariPool
+      pool-name: PerformixHikariPool
       leak-detection-threshold: 60000
   
   # JPA / Hibernate Configuration

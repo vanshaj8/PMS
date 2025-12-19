@@ -42,6 +42,9 @@ public class PIPService {
     @Autowired
     private SuccessCriteriaService successCriteriaService;
 
+    @Autowired(required = false)
+    private com.pip.goals.service.GoalService goalService;
+
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     @Transactional
@@ -119,34 +122,80 @@ public class PIPService {
         
         pip.setTimeline(timeline);
 
-        // Create goals
-        List<Goal> goals = request.getGoals().stream().map(goalRequest -> {
-            Goal goal = new Goal();
-            goal.setTitle(goalRequest.getTitle());
-            goal.setDescription(goalRequest.getDescription());
-            goal.setWeightage(goalRequest.getWeightage());
-            goal.setExpectedOutcome(goalRequest.getExpectedOutcome());
-            goal.setTargetTimeline(goalRequest.getTargetTimeline());
-            goal.setDeadline(goalRequest.getDeadline());
-            goal.setPip(pip);
-            return goal;
-        }).collect(Collectors.toList());
-        pip.setGoals(goals);
-
         pip.setCheckIns(new ArrayList<>());
         
         // Save pip first to get ID and timestamp
-        PIP savedPip = pipRepository.save(pip);
+        final PIP savedPip = pipRepository.save(pip);
+
+        // Create goals using centralized GoalService if available, otherwise use legacy approach
+        if (goalService != null) {
+            // Use centralized goals service
+            List<String> goalIds = new ArrayList<>();
+            
+            for (Goal goalRequest : request.getGoals()) {
+                // Create goal in centralized service
+                com.pip.goals.service.GoalService.CreateGoalRequest createRequest = 
+                    new com.pip.goals.service.GoalService.CreateGoalRequest();
+                createRequest.setEmployeeId(request.getEmployeeId());
+                createRequest.setTitle(goalRequest.getTitle());
+                createRequest.setDescription(goalRequest.getDescription());
+                createRequest.setWeightage(goalRequest.getWeightage());
+                createRequest.setGoalType(com.pip.goals.model.GoalType.PIP_IMPROVEMENT_GOAL);
+                createRequest.setSuccessCriteria(goalRequest.getExpectedOutcome());
+                createRequest.setTargetDate(goalRequest.getDeadline() != null ? 
+                    LocalDate.parse(goalRequest.getDeadline()) : null);
+                createRequest.setCreatedInContext("PIP");
+                createRequest.setCreatedInContextId(savedPip.getId());
+                createRequest.setCreatedBy(request.getManagerId());
+                
+                com.pip.goals.model.Goal centralizedGoal = goalService.createGoal(createRequest);
+                goalIds.add(centralizedGoal.getId());
+            }
+            
+            // Link goals to PIP
+            goalService.linkGoalsToPIP(savedPip.getId(), goalIds, request.getManagerId());
+            
+            // For backward compatibility, also create legacy goals
+            List<Goal> legacyGoals = request.getGoals().stream().map(goalRequest -> {
+                Goal goal = new Goal();
+                goal.setTitle(goalRequest.getTitle());
+                goal.setDescription(goalRequest.getDescription());
+                goal.setWeightage(goalRequest.getWeightage());
+                goal.setExpectedOutcome(goalRequest.getExpectedOutcome());
+                goal.setTargetTimeline(goalRequest.getTargetTimeline());
+                goal.setDeadline(goalRequest.getDeadline());
+                goal.setPip(savedPip);
+                return goal;
+            }).collect(Collectors.toList());
+            savedPip.setGoals(legacyGoals);
+        } else {
+            // Legacy approach: create goals directly in PIP
+            List<Goal> goals = request.getGoals().stream().map(goalRequest -> {
+                Goal goal = new Goal();
+                goal.setTitle(goalRequest.getTitle());
+                goal.setDescription(goalRequest.getDescription());
+                goal.setWeightage(goalRequest.getWeightage());
+                goal.setExpectedOutcome(goalRequest.getExpectedOutcome());
+                goal.setTargetTimeline(goalRequest.getTargetTimeline());
+                goal.setDeadline(goalRequest.getDeadline());
+                goal.setPip(savedPip);
+                return goal;
+            }).collect(Collectors.toList());
+            savedPip.setGoals(goals);
+        }
+        
+        // Save again with goals
+        PIP finalPip = pipRepository.save(savedPip);
         
         // Initialize steps with calculated deadlines
-        List<PIPStep> steps = initializeSteps(savedPip, policy);
+        List<PIPStep> steps = initializeSteps(finalPip, policy);
         for (PIPStep step : steps) {
-            step.setPip(savedPip);
+            step.setPip(finalPip);
         }
-        savedPip.setSteps(steps);
+        finalPip.setSteps(steps);
         
         // Save again with steps
-        return pipRepository.save(savedPip);
+        return pipRepository.save(finalPip);
     }
 
     private List<PIPStep> initializeSteps(PIP pip, DeadlinePolicy policy) {

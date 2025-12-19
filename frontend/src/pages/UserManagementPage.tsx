@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -57,6 +57,7 @@ import { pipService } from '../services/pipService';
 
 export default function UserManagementPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -174,6 +175,9 @@ export default function UserManagementPage() {
   };
 
   const handleViewProfile = async (result: UserSearchResult) => {
+    // Navigate to full profile page
+    navigate(`/users/${result.user.id}/profile`);
+    // Keep drawer as fallback
     setSelectedUserForProfile(result);
     try {
       const pips = await pipService.getAllPIPs();
